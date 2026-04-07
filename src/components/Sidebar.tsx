@@ -1,7 +1,8 @@
 import React from 'react';
-import { LayoutDashboard, Upload, Settings, ShieldCheck, Activity, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Upload, Settings, ShieldCheck, Activity, BarChart3, LogOut } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 
 interface SidebarProps {
   activeTab: string;
@@ -61,6 +62,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             </button>
           );
         })}
+
+        <div className="pt-8 mt-8 border-t border-slate-100">
+          <button
+            onClick={() => supabase.auth.signOut()}
+            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl text-rose-500 hover:bg-rose-50 transition-all duration-300 group"
+          >
+            <LogOut className="w-5 h-5 transition-transform group-hover:scale-110" />
+            <span className="font-bold text-sm tracking-tight">Cerrar Sesión</span>
+          </button>
+        </div>
       </nav>
 
       <div className="mt-auto">

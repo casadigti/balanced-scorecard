@@ -41,6 +41,11 @@ import { SectionHeader } from './components/SectionHeader';
 import { ChartContainer } from './components/ChartContainer';
 import { DataUpload } from './components/DataUpload';
 import { StrategicConfig } from './components/StrategicConfig';
+import { Login } from './components/Login';
+
+// Supabase
+import { supabase } from './lib/supabase';
+import { Session } from '@supabase/supabase-js';
 
 // Hooks & Logic
 import { useDashboardData } from './hooks/useDashboardData';
@@ -56,6 +61,8 @@ const formatCurrency = (value: number) => {
 const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#f43f5e', '#84cc16'];
 
 export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [loadingSession, setLoadingSession] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMounted, setIsMounted] = useState(false);
   const { 
@@ -89,6 +96,21 @@ export default function App() {
 
   useEffect(() => {
     setIsMounted(true);
+
+    // Obtener sesión inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setLoadingSession(false);
+    });
+
+    // Escuchar cambios de autenticación
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const renderDashboard = () => (
@@ -421,6 +443,25 @@ export default function App() {
 
     </div>
   );
+
+  if (loadingSession) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 sm:p-12">
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="w-16 h-16 bg-brand-600 rounded-3xl flex items-center justify-center mb-6 shadow-2xl shadow-brand-600/40"
+        >
+          <Activity className="w-8 h-8 text-white" />
+        </motion.div>
+        <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Cargando Entorno Seguro...</p>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <Login />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-brand-100">
