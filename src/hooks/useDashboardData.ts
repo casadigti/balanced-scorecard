@@ -125,7 +125,6 @@ export const useDashboardData = () => {
 
         if (invError) throw invError;
 
-        // Cargar Citas
         const { data: appData, error: appError } = await supabase
           .from('appointments')
           .select('*')
@@ -133,6 +132,9 @@ export const useDashboardData = () => {
           .limit(50000);
 
         if (appError) throw appError;
+
+        console.log(`BSC Debug: Descargadas ${invData?.length || 0} facturas`);
+        console.log(`BSC Debug: Descargadas ${appData?.length || 0} citas`);
 
         if (invData && invData.length > 0) {
           setInvoices(invData.map(i => ({
