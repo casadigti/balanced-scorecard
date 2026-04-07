@@ -116,25 +116,34 @@ export const useDashboardData = () => {
         // Cargar objetivos del usuario
         await fetchUserSettings(session.user.id);
 
-        // Cargar Facturas (Intentar traer todas las facturas a las que el usuario tiene acceso por RLS)
-        const { data: invData, error: invError } = await supabase
-          .from('invoices')
-          .select('*')
-          .order('fecha', { ascending: false })
-          .limit(50000);
+        // Función para descargar todos los registros superando el límite de 1000
+        const fetchAllFromTable = async (table: string) => {
+          let results: any[] = [];
+          let from = 0;
+          let to = 999;
+          while (true) {
+            const { data, error } = await supabase
+              .from(table)
+              .select('*')
+              .range(from, to)
+              .order('fecha', { ascending: false });
+            
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            
+            results = [...results, ...data];
+            if (data.length < 1000) break;
+            from += 1000;
+            to += 1000;
+          }
+          return results;
+        };
 
-        if (invError) throw invError;
+        const invData = await fetchAllFromTable('invoices');
+        const appData = await fetchAllFromTable('appointments');
 
-        const { data: appData, error: appError } = await supabase
-          .from('appointments')
-          .select('*')
-          .order('fecha', { ascending: false })
-          .limit(50000);
-
-        if (appError) throw appError;
-
-        console.log(`BSC Debug: Descargadas ${invData?.length || 0} facturas`);
-        console.log(`BSC Debug: Descargadas ${appData?.length || 0} citas`);
+        console.log(`BSC Debug: Descargadas ${invData?.length || 0} facturas (Paginado)`);
+        console.log(`BSC Debug: Descargadas ${appData?.length || 0} citas (Paginado)`);
 
         if (invData && invData.length > 0) {
           setInvoices(invData.map(i => ({
