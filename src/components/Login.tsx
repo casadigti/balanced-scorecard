@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, LogIn, UserPlus, Fingerprint, Activity, AlertCircle, ArrowRight } from 'lucide-react';
+import { Mail, Lock, LogIn, Fingerprint, Activity, AlertCircle, ArrowRight } from 'lucide-react';
 
 export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forceReset?: boolean, onPasswordReset?: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [isResetMode, setIsResetMode] = useState(forceReset);
   const [error, setError] = useState<string | null>(null);
@@ -38,16 +37,6 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
         });
         if (error) throw error;
         setMessage('Se ha enviado un correo para restablecer tu contraseña.');
-      } else if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ 
-          email, 
-          password,
-          options: {
-            emailRedirectTo: window.location.origin
-          }
-        });
-        if (error) throw error;
-        setMessage('¡Registro exitoso! Por favor verifica tu correo electrónico.');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -83,10 +72,10 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
               <Activity className="w-10 h-10 text-white" />
             </motion.div>
             <h1 className="text-3xl font-black text-white tracking-tight leading-tight">
-              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : isSignUp ? 'Crear Cuenta' : 'Acceso al Sistema'}
+              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : 'Acceso al Sistema'}
             </h1>
             <p className="text-slate-400 mt-2 font-medium text-sm">
-              {isResetMode ? 'Define tu nueva contraseña segura' : isForgotPassword ? 'Te enviaremos un email para resetearla' : isSignUp ? 'Regístrate para gestionar tu dashboard' : 'Introduce tus credenciales autorizadas'}
+              {isResetMode ? 'Define tu nueva contraseña segura' : isForgotPassword ? 'Te enviaremos un email para resetearla' : 'Introduce tus credenciales autorizadas'}
             </p>
           </div>
 
@@ -176,7 +165,7 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {isResetMode ? 'Actualizar Contraseña' : isForgotPassword ? 'Enviar Instrucciones' : isSignUp ? 'Crear Cuenta' : 'Entrar al Panel'}
+                  {isResetMode ? 'Actualizar Contraseña' : isForgotPassword ? 'Enviar Instrucciones' : 'Entrar al Panel'}
                   <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </>
               )}
@@ -193,21 +182,19 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
               </button>
             )}
 
-            <button
-              onClick={() => {
-                if (isResetMode || isForgotPassword) {
+            {(isForgotPassword || isResetMode) && (
+              <button
+                onClick={() => {
                   setIsResetMode(false);
                   setIsForgotPassword(false);
-                } else {
-                  setIsSignUp(!isSignUp);
-                }
-                setError(null);
-                setMessage(null);
-              }}
-              className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-widest"
-            >
-              {isForgotPassword || isResetMode ? 'Volver al inicio de sesión' : isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes acceso? Regístrate'}
-            </button>
+                  setError(null);
+                  setMessage(null);
+                }}
+                className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-widest"
+              >
+                Volver al inicio de sesión
+              </button>
+            )}
           </div>
         </div>
 
