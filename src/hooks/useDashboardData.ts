@@ -120,7 +120,8 @@ export const useDashboardData = () => {
         const { data: invData, error: invError } = await supabase
           .from('invoices')
           .select('*')
-          .order('fecha', { ascending: false });
+          .order('fecha', { ascending: false })
+          .limit(50000);
 
         if (invError) throw invError;
 
@@ -128,7 +129,8 @@ export const useDashboardData = () => {
         const { data: appData, error: appError } = await supabase
           .from('appointments')
           .select('*')
-          .order('fecha', { ascending: false });
+          .order('fecha', { ascending: false })
+          .limit(50000);
 
         if (appError) throw appError;
 
