@@ -10,7 +10,8 @@ import {
   getAppointmentsByProcedure,
   getPatientsByBranch,
   getENPSDistribution,
-  getPatientSatisfactionDistribution
+  getPatientSatisfactionDistribution,
+  parseDate
 } from '../lib/data-processor';
 
 
@@ -107,12 +108,15 @@ export const useDashboardData = () => {
       setLoading(true);
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+        if (!session) {
+          setLoading(false);
+          return;
+        }
 
         // Cargar objetivos del usuario
         await fetchUserSettings(session.user.id);
 
-        // Cargar Facturas
+        // Cargar Facturas (Intentar traer todas las facturas a las que el usuario tiene acceso por RLS)
         const { data: invData, error: invError } = await supabase
           .from('invoices')
           .select('*')
@@ -130,27 +134,27 @@ export const useDashboardData = () => {
 
         if (invData && invData.length > 0) {
           setInvoices(invData.map(i => ({
-            id: i.id,
-            citaId: '',
-            pacienteId: '',
+            id: i.numero || i.id,
+            citaId: i.cita_id || '',
+            pacienteId: i.paciente_id || '',
             sucursal: i.sucursal || 'Desconocida',
             paciente: i.cliente || 'Desconocido',
-            fecha: new Date(i.fecha),
+            fecha: parseDate(i.fecha),
             totalFacturado: Number(i.monto),
-            estatus: 'Pagada',
+            estatus: i.estatus || 'Pagada',
             procedimiento: i.procedimiento || 'General'
           })));
         }
 
         if (appData && appData.length > 0) {
           setAppointments(appData.map(a => ({
-            id: a.id,
-            facturaId: '',
+            id: a.cita_id || a.id,
+            facturaId: a.factura_id || '',
             pacienteId: a.paciente_id || '',
             sucursal: a.sucursal || 'Desconocida',
-            paciente: '',
-            fechaCita: new Date(a.fecha),
-            duracion: 0,
+            paciente: a.paciente || 'Desconocido',
+            fechaCita: parseDate(a.fecha),
+            duracion: 15,
             estatus: a.status || 'Programada',
             doctor: a.medico || 'Desconocido',
             procedimiento: a.especialidad || 'General'
@@ -168,7 +172,7 @@ export const useDashboardData = () => {
     };
 
     fetchData();
-  }, []);
+  }, [fetchUserSettings]);
 
   const saveToSupabase = useCallback(async (newInvoices: Invoice[], newAppointments: Appointment[]) => {
     try {
@@ -179,34 +183,38 @@ export const useDashboardData = () => {
 
       if (newInvoices.length > 0) {
         const invToSave = newInvoices.map(i => ({
-          id: i.id || `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: i.id ? `inv_${i.id}` : `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           user_id: userId,
           numero: i.id,
-          fecha: i.fecha.toISOString().split('T')[0],
+          cita_id: i.citaId,
+          paciente_id: i.pacienteId,
+          fecha: i.fecha instanceof Date ? i.fecha.toISOString().split('T')[0] : i.fecha,
           cliente: i.paciente,
           monto: i.totalFacturado,
           sucursal: i.sucursal,
-          procedimiento: i.procedimiento
+          procedimiento: i.procedimiento,
+          estatus: i.estatus
         }));
 
-        const { error } = await supabase.from('invoices').upsert(invToSave);
+        const { error } = await supabase.from('invoices').upsert(invToSave, { onConflict: 'id' });
         if (error) throw error;
       }
 
       if (newAppointments.length > 0) {
         const appToSave = newAppointments.map(a => ({
-          id: a.id || `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: a.id ? `app_${a.id}` : `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           user_id: userId,
           cita_id: a.id,
-          fecha: a.fechaCita.toISOString().split('T')[0],
+          fecha: a.fechaCita instanceof Date ? a.fechaCita.toISOString().split('T')[0] : a.fechaCita,
           paciente_id: a.pacienteId,
+          paciente: a.paciente,
           medico: a.doctor,
           especialidad: a.procedimiento,
           sucursal: a.sucursal,
           status: a.estatus
         }));
 
-        const { error } = await supabase.from('appointments').upsert(appToSave);
+        const { error } = await supabase.from('appointments').upsert(appToSave, { onConflict: 'id' });
         if (error) throw error;
       }
     } catch (err) {

@@ -65,6 +65,7 @@ export default function App() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isMounted, setIsMounted] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const { 
     filteredInvoices,
     selectedSucursal,
@@ -110,8 +111,12 @@ export default function App() {
     // Escuchar cambios de autenticación
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setShowResetPassword(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -465,8 +470,8 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return <Login />;
+  if (!session || showResetPassword) {
+    return <Login forceReset={showResetPassword} onPasswordReset={() => setShowResetPassword(false)} />;
   }
 
   return (

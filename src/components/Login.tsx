@@ -3,11 +3,14 @@ import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
 import { Mail, Lock, LogIn, UserPlus, Fingerprint, Activity, AlertCircle, ArrowRight } from 'lucide-react';
 
-export const Login = () => {
+export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forceReset?: boolean, onPasswordReset?: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isResetMode, setIsResetMode] = useState(forceReset);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -18,7 +21,24 @@ export const Login = () => {
     setMessage(null);
 
     try {
-      if (isSignUp) {
+      if (isResetMode) {
+        if (password !== confirmPassword) {
+          throw new Error('Las contraseñas no coinciden');
+        }
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        setMessage('¡Contraseña actualizada con éxito! Ya puedes entrar.');
+        setTimeout(() => {
+          setIsResetMode(false);
+          onPasswordReset();
+        }, 2000);
+      } else if (isForgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (error) throw error;
+        setMessage('Se ha enviado un correo para restablecer tu contraseña.');
+      } else if (isSignUp) {
         const { error } = await supabase.auth.signUp({ 
           email, 
           password,
@@ -63,42 +83,64 @@ export const Login = () => {
               <Activity className="w-10 h-10 text-white" />
             </motion.div>
             <h1 className="text-3xl font-black text-white tracking-tight leading-tight">
-              {isSignUp ? 'Crear Cuenta' : 'Acceso al Sistema'}
+              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : isSignUp ? 'Crear Cuenta' : 'Acceso al Sistema'}
             </h1>
             <p className="text-slate-400 mt-2 font-medium text-sm">
-              {isSignUp ? 'Regístrate para gestionar tu dashboard' : 'Introduce tus credenciales autorizadas'}
+              {isResetMode ? 'Define tu nueva contraseña segura' : isForgotPassword ? 'Te enviaremos un email para resetearla' : isSignUp ? 'Regístrate para gestionar tu dashboard' : 'Introduce tus credenciales autorizadas'}
             </p>
           </div>
 
           <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-4">
-              <div className="relative group/input">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
-                  <Mail className="w-5 h-5" />
+              {!isResetMode && (
+                <div className="relative group/input">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Correo electrónico"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
+                  />
                 </div>
-                <input
-                  type="email"
-                  placeholder="Correo electrónico"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
-                />
-              </div>
+              )}
 
-              <div className="relative group/input">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <input
-                  type="password"
-                  placeholder="Contraseña"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
-                />
-              </div>
+              {!isForgotPassword && (
+                <>
+                  <div className="relative group/input">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
+                      <Lock className="w-5 h-5" />
+                    </div>
+                    <input
+                      type="password"
+                      placeholder={isResetMode ? "Contraseña nueva" : "Contraseña"}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
+                    />
+                  </div>
+
+                  {isResetMode && (
+                    <div className="relative group/input">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <input
+                        type="password"
+                        placeholder="Confirmar contraseña"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             <AnimatePresence mode="wait">
@@ -134,23 +176,37 @@ export const Login = () => {
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {isSignUp ? 'Crear Cuenta' : 'Entrar al Panel'}
+                  {isResetMode ? 'Actualizar Contraseña' : isForgotPassword ? 'Enviar Instrucciones' : isSignUp ? 'Crear Cuenta' : 'Entrar al Panel'}
                   <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-white/5 text-center">
+          <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4 text-center">
+            {!isResetMode && !isForgotPassword && (
+              <button
+                onClick={() => setIsForgotPassword(true)}
+                className="text-slate-500 hover:text-white text-[10px] font-bold transition-colors uppercase tracking-[0.15em]"
+              >
+                ¿Olvidaste tu contraseña?
+              </button>
+            )}
+
             <button
               onClick={() => {
-                setIsSignUp(!isSignUp);
+                if (isResetMode || isForgotPassword) {
+                  setIsResetMode(false);
+                  setIsForgotPassword(false);
+                } else {
+                  setIsSignUp(!isSignUp);
+                }
                 setError(null);
                 setMessage(null);
               }}
               className="text-slate-400 hover:text-white text-xs font-bold transition-colors uppercase tracking-widest"
             >
-              {isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes acceso? Regístrate'}
+              {isForgotPassword || isResetMode ? 'Volver al inicio de sesión' : isSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes acceso? Regístrate'}
             </button>
           </div>
         </div>
