@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
-import { Invoice, Appointment, HRData, KPIStats } from '../types/dashboard';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Invoice, Appointment, HRData } from '../types/dashboard';
+import { supabase } from '../lib/supabase';
 import { 
   processInvoices, 
   processAppointments, 
@@ -20,6 +21,7 @@ export const useDashboardData = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   const [hrData, setHrData] = useState<HRData>({
     metaFacturacion: 1500000,
@@ -34,6 +36,117 @@ export const useDashboardData = () => {
     employeeDetractors: 10,
     trainingInvestment: 50000,
   });
+
+  // Cargar datos iniciales desde Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        // Cargar Facturas
+        const { data: invData, error: invError } = await supabase
+          .from('invoices')
+          .select('*')
+          .order('fecha', { ascending: false });
+
+        if (invError) throw invError;
+
+        // Cargar Citas
+        const { data: appData, error: appError } = await supabase
+          .from('appointments')
+          .select('*')
+          .order('fecha', { ascending: false });
+
+        if (appError) throw appError;
+
+        if (invData && invData.length > 0) {
+          setInvoices(invData.map(i => ({
+            id: i.id,
+            citaId: '',
+            pacienteId: '',
+            sucursal: i.sucursal || 'Desconocida',
+            paciente: i.cliente || 'Desconocido',
+            fecha: new Date(i.fecha),
+            totalFacturado: Number(i.monto),
+            estatus: 'Pagada',
+            procedimiento: i.procedimiento || 'General'
+          })));
+        }
+
+        if (appData && appData.length > 0) {
+          setAppointments(appData.map(a => ({
+            id: a.id,
+            facturaId: '',
+            pacienteId: a.paciente_id || '',
+            sucursal: a.sucursal || 'Desconocida',
+            paciente: '',
+            fechaCita: new Date(a.fecha),
+            duracion: 0,
+            estatus: a.status || 'Programada',
+            doctor: a.medico || 'Desconocido',
+            procedimiento: a.especialidad || 'General'
+          })));
+        }
+
+        if ((invData && invData.length > 0) || (appData && appData.length > 0)) {
+          setDataLoaded(true);
+        }
+      } catch (err) {
+        console.error('Error cargando datos:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const saveToSupabase = useCallback(async (newInvoices: Invoice[], newAppointments: Appointment[]) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const userId = session.user.id;
+
+      if (newInvoices.length > 0) {
+        const invToSave = newInvoices.map(i => ({
+          id: i.id || `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: userId,
+          numero: i.id,
+          fecha: i.fecha.toISOString().split('T')[0],
+          cliente: i.paciente,
+          monto: i.totalFacturado,
+          sucursal: i.sucursal,
+          procedimiento: i.procedimiento
+        }));
+
+        const { error } = await supabase.from('invoices').upsert(invToSave);
+        if (error) throw error;
+      }
+
+      if (newAppointments.length > 0) {
+        const appToSave = newAppointments.map(a => ({
+          id: a.id || `app_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: userId,
+          cita_id: a.id,
+          fecha: a.fechaCita.toISOString().split('T')[0],
+          paciente_id: a.pacienteId,
+          medico: a.doctor,
+          especialidad: a.procedimiento,
+          sucursal: a.sucursal,
+          status: a.estatus
+        }));
+
+        const { error } = await supabase.from('appointments').upsert(appToSave);
+        if (error) throw error;
+      }
+    } catch (err) {
+      console.error('Error guardando en Supabase:', err);
+      throw err;
+    }
+  }, []);
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
@@ -102,13 +215,22 @@ export const useDashboardData = () => {
     return ['Todas', ...Array.from(s)];
   }, [invoices, appointments]);
 
-  const clearData = () => {
-    setInvoices([]);
-    setAppointments([]);
-    setDataLoaded(false);
-    setSelectedSucursal('Todas');
-    setStartDate('');
-    setEndDate('');
+  const clearData = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await supabase.from('invoices').delete().eq('user_id', session.user.id);
+        await supabase.from('appointments').delete().eq('user_id', session.user.id);
+      }
+      setInvoices([]);
+      setAppointments([]);
+      setDataLoaded(false);
+      setSelectedSucursal('Todas');
+      setStartDate('');
+      setEndDate('');
+    } catch (err) {
+      console.error('Error limpiando datos:', err);
+    }
   };
 
   return {
@@ -137,6 +259,8 @@ export const useDashboardData = () => {
     dataLoaded,
     setDataLoaded,
     clearData,
+    saveToSupabase,
+    loading,
     processInvoices,
     processAppointments
   };

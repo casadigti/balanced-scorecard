@@ -87,7 +87,9 @@ export default function App() {
     setAppointments,
     clearData,
     dataLoaded,
-    setDataLoaded
+    setDataLoaded,
+    saveToSupabase,
+    loading: loadingData
   } = useDashboardData();
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showSatisfactionModal, setShowSatisfactionModal] = useState(false);
@@ -444,7 +446,7 @@ export default function App() {
     </div>
   );
 
-  if (loadingSession) {
+  if (loadingSession || loadingData) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 sm:p-12">
         <motion.div 
@@ -454,7 +456,9 @@ export default function App() {
         >
           <Activity className="w-8 h-8 text-white" />
         </motion.div>
-        <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Cargando Entorno Seguro...</p>
+        <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">
+          {loadingSession ? 'Iniciando Sesión Segura...' : 'Sincronizando con la Nube...'}
+        </p>
       </div>
     );
   }
@@ -619,6 +623,7 @@ export default function App() {
                   setAppointments={setAppointments}
                   setDataLoaded={setDataLoaded}
                   clearData={clearData}
+                  saveToSupabase={saveToSupabase}
                   onSuccess={() => setActiveTab('dashboard')}
                 />
               )}

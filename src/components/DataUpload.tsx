@@ -20,6 +20,7 @@ interface DataUploadProps {
   setAppointments: (appointments: Appointment[]) => void;
   setDataLoaded: (loaded: boolean) => void;
   clearData: () => void;
+  saveToSupabase: (invoices: Invoice[], appointments: Appointment[]) => Promise<void>;
   onSuccess: () => void;
 }
 
@@ -30,6 +31,7 @@ export const DataUpload: React.FC<DataUploadProps> = ({
   setAppointments,
   setDataLoaded,
   clearData,
+  saveToSupabase,
   onSuccess
 }) => {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
@@ -130,9 +132,12 @@ export const DataUpload: React.FC<DataUploadProps> = ({
       }
 
       // Limpieza y actualización atómica para evitar saltos en la UI
-      clearData(); // Esto limpia filtros y setDataLoaded(false)
+      clearData(); 
       
-      // Esperar un ciclo para asegurar que el estado se limpie
+      // Guardar en Supabase ANTES de actualizar el estado local para asegurar persistencia
+      await saveToSupabase(invoicesProcessed, appointmentsProcessed);
+
+      // Actualizar estado local
       setInvoices(invoicesProcessed);
       setAppointments(appointmentsProcessed);
       
