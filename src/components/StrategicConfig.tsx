@@ -6,7 +6,8 @@ import {
   UserMinus, 
   Smile, 
   Info,
-  Settings
+  Settings,
+  CheckCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -15,12 +16,27 @@ import { HRData } from '../types/dashboard';
 interface StrategicConfigProps {
   hrData: HRData;
   setHrData: (data: HRData) => void;
+  onSave?: () => Promise<boolean>;
+  isSaving?: boolean;
 }
 
 export const StrategicConfig: React.FC<StrategicConfigProps> = ({
   hrData,
-  setHrData
+  setHrData,
+  onSave,
+  isSaving = false
 }) => {
+  const [saveSuccess, setSaveSuccess] = React.useState(false);
+
+  const handleSave = async () => {
+    if (onSave) {
+      const success = await onSave();
+      if (success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    }
+  };
   return (
     <div className="max-w-6xl mx-auto space-y-10 pb-32">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 glass-card p-10 bg-slate-900 border-none relative overflow-hidden group">
@@ -33,6 +49,54 @@ export const StrategicConfig: React.FC<StrategicConfigProps> = ({
             Define las metas estratégicas para el periodo de análisis. Estos valores servirán 
             como base para calcular los porcentajes de cumplimiento y el éxito operativo.
           </p>
+        </div>
+        
+        <div className="relative z-10 flex flex-col items-end gap-3">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleSave}
+            disabled={isSaving}
+            className={cn(
+              "px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all flex items-center gap-3 shadow-2xl",
+              saveSuccess 
+                ? "bg-emerald-500 text-white shadow-emerald-500/20" 
+                : "bg-brand-600 text-white hover:bg-brand-700 shadow-brand-500/20",
+              isSaving && "opacity-70 cursor-not-allowed"
+            )}
+          >
+            {isSaving ? (
+              <>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                >
+                  <Settings className="w-4 h-4" />
+                </motion.div>
+                Guardando...
+              </>
+            ) : saveSuccess ? (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                ¡Guardado!
+              </>
+            ) : (
+              <>
+                <Settings className="w-4 h-4" />
+                Guardar Cambios
+              </>
+            )}
+          </motion.button>
+          
+          {saveSuccess && (
+            <motion.p 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest"
+            >
+              Los cambios ya están en la nube
+            </motion.p>
+          )}
         </div>
       </div>
 

@@ -89,7 +89,9 @@ export default function App() {
     dataLoaded,
     setDataLoaded,
     saveToSupabase,
-    loading: loadingData
+    loading: loadingData,
+    saveUserSettings,
+    savingSettings
   } = useDashboardData();
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showSatisfactionModal, setShowSatisfactionModal] = useState(false);
@@ -630,8 +632,10 @@ export default function App() {
 
               {activeTab === 'settings' && (
                 <StrategicConfig 
-                  hrData={hrData}
-                  setHrData={setHrData}
+                  hrData={hrData} 
+                  setHrData={setHrData} 
+                  onSave={() => saveUserSettings(hrData)}
+                  isSaving={savingSettings}
                 />
               )}
             </motion.div>

@@ -37,6 +37,70 @@ export const useDashboardData = () => {
     trainingInvestment: 50000,
   });
 
+  const [savingSettings, setSavingSettings] = useState(false);
+
+  const fetchUserSettings = useCallback(async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (data && !error) {
+        setHrData({
+          totalEmployees: data.employees_count,
+          metaFacturacion: data.income_target,
+          trainingInvestment: data.training_cost,
+          trainingHours: data.training_hours,
+          departures: data.turnover_target,
+          patientPromoters: data.nps_promoters,
+          patientPassives: data.nps_passives,
+          patientDetractors: data.nps_detractors,
+          employeePromoters: data.enps_promoters,
+          employeePassives: data.enps_passives,
+          employeeDetractors: data.enps_detractors
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  }, []);
+
+  const saveUserSettings = useCallback(async (newData: HRData) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return false;
+      
+      setSavingSettings(true);
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert({
+          user_id: session.user.id,
+          employees_count: newData.totalEmployees,
+          income_target: newData.metaFacturacion,
+          training_cost: newData.trainingInvestment,
+          training_hours: newData.trainingHours,
+          turnover_target: newData.departures,
+          nps_promoters: newData.patientPromoters,
+          nps_passives: newData.patientPassives,
+          nps_detractors: newData.patientDetractors,
+          enps_promoters: newData.employeePromoters,
+          enps_passives: newData.employeePassives,
+          enps_detractors: newData.employeeDetractors,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if (error) throw error;
+      setSavingSettings(false);
+      return true;
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      setSavingSettings(false);
+      return false;
+    }
+  }, []);
+
   // Cargar datos iniciales desde Supabase
   useEffect(() => {
     const fetchData = async () => {
@@ -44,6 +108,9 @@ export const useDashboardData = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
+
+        // Cargar objetivos del usuario
+        await fetchUserSettings(session.user.id);
 
         // Cargar Facturas
         const { data: invData, error: invError } = await supabase
@@ -262,6 +329,8 @@ export const useDashboardData = () => {
     saveToSupabase,
     loading,
     processInvoices,
-    processAppointments
+    processAppointments,
+    saveUserSettings,
+    savingSettings
   };
 };
