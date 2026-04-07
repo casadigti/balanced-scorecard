@@ -39,8 +39,13 @@ export const DataUpload: React.FC<DataUploadProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [invoiceValidation, setInvoiceValidation] = useState<{ count: number, columns: string[] } | null>(null);
-  const [appointmentValidation, setAppointmentValidation] = useState<{ count: number, columns: string[] } | null>(null);
+  const [invoiceValidation, setInvoiceValidation] = useState<{ count: number, columns: string[], isValid: boolean, missing: string[] } | null>(null);
+  const [appointmentValidation, setAppointmentValidation] = useState<{ count: number, columns: string[], isValid: boolean, missing: string[] } | null>(null);
+
+  const REQUIRED_COLUMNS = {
+    invoice: ['id factura', 'monto', 'sucursal', 'fecha', 'cliente'],
+    appointment: ['id cita', 'paciente', 'sucursal', 'médico', 'estatus']
+  };
 
 
   const parseFile = (file: File): Promise<any[]> => {
@@ -172,15 +177,35 @@ export const DataUpload: React.FC<DataUploadProps> = ({
 
     try {
       const data = await parseFile(file);
-      const columns = data.length > 0 ? Object.keys(data[0]) : [];
+      const columns = data.length > 0 ? Object.keys(data[0]).map(c => c.toLowerCase()) : [];
+      
+      const required = type === 'invoice' ? REQUIRED_COLUMNS.invoice : REQUIRED_COLUMNS.appointment;
+      const missing = required.filter(req => !columns.some(col => col.includes(req)));
+      const isValid = missing.length === 0;
+
       if (type === 'invoice') {
         setInvoiceFile(file);
-        setInvoiceValidation({ count: data.length, columns });
+        setInvoiceValidation({ 
+          count: data.length, 
+          columns: Object.keys(data[0] || {}), 
+          isValid, 
+          missing 
+        });
       } else {
         setAppointmentFile(file);
-        setAppointmentValidation({ count: data.length, columns });
+        setAppointmentValidation({ 
+          count: data.length, 
+          columns: Object.keys(data[0] || {}), 
+          isValid, 
+          missing 
+        });
       }
-      setLastError(null);
+      
+      if (!isValid) {
+        setLastError(`El reporte de ${type === 'invoice' ? 'facturación' : 'citas'} no parece válido. Faltan: ${missing.join(', ')}`);
+      } else {
+        setLastError(null);
+      }
     } catch (err: any) {
       setLastError("Archivo no válido o corrupto");
     }
@@ -219,10 +244,10 @@ export const DataUpload: React.FC<DataUploadProps> = ({
         <div className="flex flex-col items-end gap-3">
           <button
             onClick={handleProcessData}
-            disabled={(!invoiceFile && !appointmentFile) || isProcessing}
+            disabled={(!invoiceFile && !appointmentFile) || isProcessing || (invoiceFile && !invoiceValidation?.isValid) || (appointmentFile && !appointmentValidation?.isValid)}
             className={cn(
               "group relative px-10 py-4 rounded-2xl font-black text-white shadow-2xl transition-all active:scale-95 flex items-center gap-3 overflow-hidden",
-              (!invoiceFile && !appointmentFile) || isProcessing
+              ((!invoiceFile && !appointmentFile) || isProcessing || (invoiceFile && !invoiceValidation?.isValid) || (appointmentFile && !appointmentValidation?.isValid))
                 ? "bg-slate-300 cursor-not-allowed opacity-70"
                 : "bg-brand-600 hover:bg-brand-700 shadow-brand-500/30 hover:shadow-brand-500/40"
             )}
@@ -279,12 +304,32 @@ export const DataUpload: React.FC<DataUploadProps> = ({
                 </p>
                 {invoiceValidation ? (
                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-2">
-                     <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg uppercase tracking-widest">
-                       {invoiceValidation.count} Registros detectados
-                     </span>
-                     <p className="text-[10px] text-slate-400 font-medium max-w-[200px] truncate">
-                       Columnas: {invoiceValidation.columns.join(', ')}
-                     </p>
+                     <div className={cn(
+                       "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest",
+                       invoiceValidation.isValid ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                     )}>
+                       {invoiceValidation.isValid ? (
+                         <>
+                           <CheckCircle2 className="w-3.5 h-3.5" />
+                           {invoiceValidation.count} Registros válidos
+                         </>
+                       ) : (
+                         <>
+                           <AlertCircle className="w-3.5 h-3.5" />
+                           Formato Incorrecto
+                         </>
+                       )}
+                     </div>
+                     {!invoiceValidation.isValid && (
+                       <p className="text-[10px] text-rose-500 font-bold max-w-[200px]">
+                         Faltan: {invoiceValidation.missing.join(', ')}
+                       </p>
+                     )}
+                     {invoiceValidation.isValid && (
+                        <p className="text-[10px] text-slate-400 font-medium max-w-[200px] truncate">
+                          Columnas: {invoiceValidation.columns.join(', ')}
+                        </p>
+                     )}
                    </motion.div>
                  ) : (
                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">O haz clic para explorar archivos</p>
@@ -321,12 +366,32 @@ export const DataUpload: React.FC<DataUploadProps> = ({
                 </p>
                 {appointmentValidation ? (
                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-2">
-                     <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-2 py-1 rounded-lg uppercase tracking-widest">
-                       {appointmentValidation.count} Citas detectadas
-                     </span>
-                     <p className="text-[10px] text-slate-400 font-medium max-w-[200px] truncate">
-                       Columnas: {appointmentValidation.columns.join(', ')}
-                     </p>
+                      <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest",
+                        appointmentValidation.isValid ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                      )}>
+                        {appointmentValidation.isValid ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            {appointmentValidation.count} Citas válidas
+                          </>
+                        ) : (
+                          <>
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Formato Incorrecto
+                          </>
+                        )}
+                      </div>
+                      {!appointmentValidation.isValid && (
+                        <p className="text-[10px] text-rose-500 font-bold max-w-[200px]">
+                          Faltan: {appointmentValidation.missing.join(', ')}
+                        </p>
+                      )}
+                      {appointmentValidation.isValid && (
+                        <p className="text-[10px] text-slate-400 font-medium max-w-[200px] truncate">
+                          Columnas: {appointmentValidation.columns.join(', ')}
+                        </p>
+                      )}
                    </motion.div>
                  ) : (
                    <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">O haz clic para explorar archivos</p>
