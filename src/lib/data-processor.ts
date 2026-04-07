@@ -102,9 +102,9 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
   return data
     .map((row, rowIdx) => {
       // Generar ID de respaldo en caso de que el campo # esté vacío
-      let id = cleanString(findValueInRow(row, ['#', 'ID', 'No.']));
+      let id = cleanString(findValueInRow(row, ['#', 'ID', 'No.', 'ID Factura', 'No Factura']));
       
-      const precioRaw = findValueInRow(row, ['Precio Total', 'Monto']);
+      const precioRaw = findValueInRow(row, ['Precio Total', 'Monto', 'Total', 'Subtotal']);
       const totalFacturadoRaw = parseCurrency(precioRaw);
       
       // Solo descartar si no tiene ni ID ni Precio Total
@@ -113,27 +113,25 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
       // Si llegó aquí sin ID, usamos un ID sintético para no perder la fila
       if (!id) id = `row-${fileIndex}-${rowIdx}`;
 
-      const tipoDoc = cleanString(findValueInRow(row, ['Tipo de Documento'])).toLowerCase();
+      const tipoDoc = cleanString(findValueInRow(row, ['Tipo de Documento', 'Tipo'])).toLowerCase();
       
-      // SUMA BRUTA: coincidir con la sumatoria total del sistema de origen.
-      // No filtramos por estatus ni restamos descuentos en el KPI principal.
+      // SUMA BRUTA
       let totalFacturado = totalFacturadoRaw;
       
-      // Si es Nota de Crédito, el valor debe ser negativo para que reste de la producción bruta
       if (tipoDoc.includes('nota de cr') || tipoDoc.includes('nc')) {
         totalFacturado = -Math.abs(totalFacturado);
       }
 
       return {
         id,
-        citaId: cleanString(findValueInRow(row, ['Cita ID', 'ID Cita', 'Cita'])),
-        pacienteId: cleanString(findValueInRow(row, ['Paciente ID', 'ID paciente', 'No. Record'])),
-        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente'])),
-        fecha: parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura'])),
+        citaId: cleanString(findValueInRow(row, ['Cita ID', 'ID Cita', 'Cita', 'No. Cita'])),
+        pacienteId: cleanString(findValueInRow(row, ['Paciente ID', 'ID paciente', 'No. Record', 'ID Paciente'])),
+        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede'])),
+        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre'])),
+        fecha: parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura', 'Fecha Creacion'])),
         totalFacturado,
         estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado'])),
-        procedimiento: cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio']))
+        procedimiento: cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio', 'Procedimientos']))
       };
     })
     .filter((i): i is Invoice => i !== null);
@@ -142,19 +140,20 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
 export const processAppointments = (data: any[]): Appointment[] => {
   return data
     .map(row => {
-      const id = cleanString(findValueInRow(row, ['ID Citas', 'ID Cita', 'ID', 'Codigo', 'No. Cita']));
+      // Priorizar 'ID Cita' que es lo que viene de MedicalCore
+      const id = cleanString(findValueInRow(row, ['ID Cita', 'ID Citas', 'ID', 'Codigo', 'No. Cita']));
       if (!id) return null;
 
       return {
         id,
-        facturaId: cleanString(findValueInRow(row, ['No Factura', 'Factura', 'ID Factura'])),
+        facturaId: cleanString(findValueInRow(row, ['No Factura', 'Factura', 'ID Factura', 'No. Factura'])),
         pacienteId: cleanString(findValueInRow(row, ['ID paciente', 'ID Paciente', 'Paciente ID', 'No. Record'])),
-        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente'])),
-        fechaCita: parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha'])),
+        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede'])),
+        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre'])),
+        fechaCita: parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha', 'Fecha Cita'])),
         duracion: parseInt(cleanString(findValueInRow(row, ['Duracion de Cita', 'Duración', 'Minutos']))) || 15,
         estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado'])),
-        doctor: cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico'])),
+        doctor: cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico', 'Doctor Tratante'])),
         procedimiento: cleanString(findValueInRow(row, ['Procedimientos', 'Procedimiento', 'Servicio Solicitado', 'Servicio']))
       };
     })
