@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, LogIn, Fingerprint, Activity, AlertCircle, ArrowRight } from 'lucide-react';
+import { Mail, Lock, LogIn, Fingerprint, Activity, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forceReset?: boolean, onPasswordReset?: () => void }) => {
   const [loading, setLoading] = useState(false);
@@ -49,83 +49,101 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 sm:p-12 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-brand-600/20 blur-[120px] rounded-full animate-pulse" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
-
+    <div className="min-h-screen bg-[#070b14] flex flex-col items-center justify-center p-6 sm:p-12 relative overflow-hidden">
+      
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md z-10"
       >
-        <div className="bg-white/5 backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 shadow-2xl overflow-hidden relative group">
+        <div className="bg-[#111827] border border-white/5 rounded-3xl p-8 sm:p-10 shadow-2xl overflow-hidden relative border-b-0 rounded-b-none">
           {/* Top accent line */}
-          <div className="absolute top-0 left-10 right-10 h-1 bg-gradient-to-r from-transparent via-brand-500 to-transparent opacity-50 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-400 via-emerald-500 to-yellow-500" />
 
-          <div className="flex flex-col items-center text-center mb-10">
+          <div className="flex flex-col items-center text-center mt-2 mb-8">
             <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-20 h-20 rounded-3xl bg-brand-600 flex items-center justify-center mb-6 shadow-xl shadow-brand-600/20"
+              whileHover={{ scale: 1.02 }}
+              className="w-full max-w-[260px] rounded-2xl bg-[#1f2937] border border-white/5 p-4 flex items-center justify-center mb-8 shadow-inner overflow-hidden"
             >
-              <Activity className="w-10 h-10 text-white" />
+              <img 
+                src="/logo.png" 
+                alt="CASADIG Logo" 
+                className="w-full h-auto object-contain max-h-[80px]"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
             </motion.div>
-            <h1 className="text-3xl font-black text-white tracking-tight leading-tight">
-              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : 'Acceso al Sistema'}
+
+            <h1 className="text-2xl font-black text-white tracking-tight leading-tight">
+              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : 'Panel de Control'}
             </h1>
-            <p className="text-slate-400 mt-2 font-medium text-sm">
-              {isResetMode ? 'Define tu nueva contraseña segura' : isForgotPassword ? 'Te enviaremos un email para resetearla' : 'Introduce tus credenciales autorizadas'}
+            <p className="text-slate-400 mt-2 font-medium text-sm flex items-center gap-1.5 justify-center">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              {isResetMode ? 'Define tu nueva contraseña segura' : isForgotPassword ? 'Te enviaremos un email para resetearla' : 'Acceso restringido — Personal autorizado'}
             </p>
           </div>
 
-          <form onSubmit={handleAuth} className="space-y-6">
-            <div className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-5">
+            <div className="space-y-5">
               {!isResetMode && (
-                <div className="relative group/input">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
-                    <Mail className="w-5 h-5" />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 block">
+                    Correo Electrónico
+                  </label>
+                  <div className="relative group/input">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-emerald-500 transition-colors">
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <input
+                      type="email"
+                      placeholder="usuario@casadigrd.com"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-[#1f2937] border border-white/5 rounded-xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:border-emerald-500/50 focus:bg-[#374151] transition-all font-medium placeholder:text-slate-600 text-sm"
+                    />
                   </div>
-                  <input
-                    type="email"
-                    placeholder="Correo electrónico"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
-                  />
                 </div>
               )}
 
               {!isForgotPassword && (
                 <>
-                  <div className="relative group/input">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
-                      <Lock className="w-5 h-5" />
-                    </div>
-                    <input
-                      type="password"
-                      placeholder={isResetMode ? "Contraseña nueva" : "Contraseña"}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
-                    />
-                  </div>
-
-                  {isResetMode && (
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 flex justify-between w-full">
+                      <span>Contraseña</span>
+                    </label>
                     <div className="relative group/input">
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-brand-500 transition-colors">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-emerald-500 transition-colors">
                         <Lock className="w-5 h-5" />
                       </div>
                       <input
                         type="password"
-                        placeholder="Confirmar contraseña"
+                        placeholder="••••••••••"
                         required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-brand-500/50 focus:bg-white/10 transition-all font-medium placeholder:text-slate-600"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full bg-[#1f2937] border border-white/5 rounded-xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:border-emerald-500/50 focus:bg-[#374151] transition-all font-medium placeholder:text-slate-600 text-sm"
                       />
+                    </div>
+                  </div>
+
+                  {isResetMode && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1 block">
+                        Confirmar Contraseña
+                      </label>
+                      <div className="relative group/input">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/input:text-emerald-500 transition-colors">
+                          <Lock className="w-5 h-5" />
+                        </div>
+                        <input
+                          type="password"
+                          placeholder="Confirmar contraseña"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full bg-[#1f2937] border border-white/5 rounded-xl py-3.5 pl-12 pr-4 text-white focus:outline-none focus:border-emerald-500/50 focus:bg-[#374151] transition-all font-medium placeholder:text-slate-600 text-sm"
+                        />
+                      </div>
                     </div>
                   )}
                 </>
@@ -159,24 +177,24 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
 
             <button
               disabled={loading}
-              className="w-full bg-brand-600 hover:bg-brand-500 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-brand-600/10 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 group/btn"
+              className="mt-6 w-full bg-[#1fae51] hover:bg-[#1a9a46] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest shadow-xl shadow-emerald-600/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group/btn"
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <>
-                  {isResetMode ? 'Actualizar Contraseña' : isForgotPassword ? 'Enviar Instrucciones' : 'Entrar al Panel'}
-                  <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+                  <ShieldCheck className="w-4 h-4" />
+                  {isResetMode ? 'Actualizar Contraseña' : isForgotPassword ? 'Enviar Instrucciones' : 'INICIAR SESIÓN'}
                 </>
               )}
             </button>
           </form>
 
-          <div className="mt-8 pt-8 border-t border-white/5 flex flex-col gap-4 text-center">
+          <div className="mt-6 pt-6 flex flex-col gap-4 text-center">
             {!isResetMode && !isForgotPassword && (
               <button
                 onClick={() => setIsForgotPassword(true)}
-                className="text-slate-500 hover:text-white text-[10px] font-bold transition-colors uppercase tracking-[0.15em]"
+                className="text-slate-500 hover:text-white text-[10px] font-bold transition-colors uppercase tracking-widest"
               >
                 ¿Olvidaste tu contraseña?
               </button>
@@ -197,17 +215,10 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
             )}
           </div>
         </div>
-
-        <div className="mt-8 flex items-center justify-center gap-6 text-slate-600 px-10">
-          <div className="flex items-center gap-2">
-            <Fingerprint className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Encriptación SSL</span>
-          </div>
-          <div className="w-1 h-1 bg-slate-800 rounded-full" />
-          <div className="flex items-center gap-2">
-            <Activity className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Medical Intelligence</span>
-          </div>
+        
+        {/* Footer Area attached to card */}
+        <div className="bg-[#0f1522] border border-white/5 border-t-0 rounded-b-3xl py-4 flex items-center justify-center">
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">© 2026 CASADIG • SISTEMA DE GESTIÓN INTERNO</span>
         </div>
       </motion.div>
     </div>
