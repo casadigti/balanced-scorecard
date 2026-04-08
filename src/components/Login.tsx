@@ -74,7 +74,7 @@ export const Login = ({ forceReset = false, onPasswordReset = () => {} }: { forc
             </motion.div>
 
             <h1 className="text-2xl font-black text-white tracking-tight leading-tight">
-              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : 'Panel de Control'}
+              {isResetMode ? 'Nueva Contraseña' : isForgotPassword ? 'Recuperar Cuenta' : 'Dashboard BSC'}
             </h1>
             <p className="text-slate-400 mt-2 font-medium text-sm flex items-center gap-1.5 justify-center">
               <ShieldCheck className="w-4 h-4 text-emerald-500" />
