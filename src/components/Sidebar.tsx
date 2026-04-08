@@ -23,11 +23,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, sessi
 
   return (
     <aside className="glass-sidebar fixed left-0 top-0 h-full w-72 p-8 hidden lg:flex flex-col z-50">
-      <div className="flex items-center gap-4 mb-12 px-2">
+      <div className="flex items-center gap-4 mb-12 px-1">
         <motion.div 
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="w-12 h-12 relative flex items-center justify-center"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-14 h-12 relative flex items-center justify-center p-1 bg-white rounded-xl shadow-[0_2px_10px_-4px_rgba(0,0,0,0.1)] border border-slate-200/60"
         >
           <img 
             src="/logo.png" 
@@ -36,9 +36,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, sessi
             onError={(e) => { e.currentTarget.style.display = 'none'; }}
           />
         </motion.div>
-        <div>
-          <span className="font-black text-2xl tracking-tighter text-slate-900 block leading-none uppercase">BSC</span>
-          <span className="text-[10px] uppercase font-bold tracking-widest text-brand-600 block">Health Core v1.1</span>
+        <div className="flex flex-col justify-center pt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="font-black text-[22px] leading-none tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-slate-800 to-slate-500">
+              BSC
+            </span>
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mb-0.5" />
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-600 mt-1">
+            Health Core
+          </span>
         </div>
       </div>
 
