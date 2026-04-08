@@ -41,7 +41,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, sessi
             <span className="font-black text-[22px] leading-none tracking-tight bg-clip-text text-transparent bg-gradient-to-br from-slate-800 to-slate-500">
               BSC
             </span>
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mb-0.5" />
           </div>
           <span className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-600 mt-1">
             Health Core
