@@ -36,6 +36,7 @@ import { cn } from './lib/utils';
 
 // Premium Components
 import { Sidebar } from './components/Sidebar';
+import { MobileNav } from './components/MobileNav';
 import { KPICard } from './components/KPICard';
 import { SectionHeader } from './components/SectionHeader';
 import { ChartContainer } from './components/ChartContainer';
@@ -477,12 +478,13 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-brand-100">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} session={session} />
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <main className="lg:ml-72 min-h-screen">
+      <main className="lg:ml-72 min-h-screen pb-24 lg:pb-0">
         {/* Header Global */}
-        <header className="sticky top-0 z-40 bg-slate-50/80 backdrop-blur-md px-8 lg:px-16 py-10">
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8 max-w-7xl mx-auto">
-            <div className="flex items-center gap-6">
+        <header className="sticky top-0 z-40 bg-slate-50/80 backdrop-blur-md px-4 sm:px-8 lg:px-16 py-6 lg:py-10">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 xl:gap-8 max-w-7xl mx-auto">
+            <div className="flex items-center gap-4 sm:gap-6">
               {/* Contenedor del Logo Empresarial */}
               <motion.div 
                 initial={{ opacity: 0, scale: 0.8 }}
@@ -505,7 +507,7 @@ export default function App() {
                 <motion.h1 
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
-                  className="text-4xl font-black text-slate-900 tracking-tight mb-2"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-black text-slate-900 tracking-tight mb-1 sm:mb-2"
                 >
                   {activeTab === 'dashboard' ? 'Dashboard Estratégico' : activeTab === 'upload' ? 'Gestión de Datos' : 'Configuración'}
                 </motion.h1>
@@ -538,29 +540,31 @@ export default function App() {
               </div>
 
               {/* Filtro Fecha Premium */}
-              <div className="glass-card flex items-center p-1.5 gap-3">
-                 <div className="flex items-center gap-2 pl-3">
-                   <Calendar className="w-4 h-4 text-brand-600" />
-                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Desde</span>
+              <div className="glass-card flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-3 w-full sm:w-auto">
+                 <div className="flex items-center gap-2 px-2 sm:pl-3">
+                   <Calendar className="w-4 h-4 text-brand-600 flex-shrink-0" />
+                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-10 sm:w-auto">Desde</span>
                    <input
                      type="date"
                      value={startDate}
                      onChange={(e) => setStartDate(e.target.value)}
                      title="Fecha de Inicio"
                      aria-label="Fecha de Inicio"
-                     className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer"
+                     className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer flex-1"
                    />
                  </div>
-                 <div className="h-4 w-px bg-slate-200" />
-                 <div className="flex items-center gap-2 pr-3">
-                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hasta</span>
+                 <div className="hidden sm:block h-4 w-px bg-slate-200" />
+                 <div className="h-px w-full bg-slate-200 sm:hidden block" />
+                 <div className="flex items-center gap-2 px-2 sm:pr-3">
+                   <Calendar className="w-4 h-4 text-transparent sm:hidden flex-shrink-0" />
+                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-10 sm:w-auto">Hasta</span>
                    <input
                      type="date"
                      value={endDate}
                      onChange={(e) => setEndDate(e.target.value)}
                      title="Fecha de Fin"
                      aria-label="Fecha de Fin"
-                     className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer"
+                     className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer flex-1"
                    />
                  </div>
               </div>
@@ -594,7 +598,7 @@ export default function App() {
         </header>
 
         {/* Content Area */}
-        <section className="px-8 lg:px-16 pt-4 max-w-7xl mx-auto overflow-hidden">
+        <section className="px-4 sm:px-8 lg:px-16 pt-2 lg:pt-4 max-w-7xl mx-auto overflow-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
