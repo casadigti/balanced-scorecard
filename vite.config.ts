@@ -53,6 +53,13 @@ export default defineConfig(({ mode }) => {
             // HMR is disabled in AI Studio via DISABLE_HMR env var.
             // Do not modify—file watching is disabled to prevent flickering during agent edits.
             hmr: process.env.DISABLE_HMR !== 'true',
+            headers: {
+                'X-Frame-Options': 'DENY',
+                'X-Content-Type-Options': 'nosniff',
+                'Referrer-Policy': 'strict-origin-when-cross-origin',
+                'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+                'Content-Security-Policy': "default-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co;"
+            }
         },
     };
 });
