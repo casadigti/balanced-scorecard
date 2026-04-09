@@ -539,6 +539,7 @@ export default function App() {
               <div className="glass-card flex items-center p-1.5 gap-3">
                  <div className="flex items-center gap-2 pl-3">
                    <Calendar className="w-4 h-4 text-brand-600" />
+                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Desde</span>
                    <input
                      type="date"
                      value={startDate}
@@ -550,6 +551,7 @@ export default function App() {
                  </div>
                  <div className="h-4 w-px bg-slate-200" />
                  <div className="flex items-center gap-2 pr-3">
+                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hasta</span>
                    <input
                      type="date"
                      value={endDate}
