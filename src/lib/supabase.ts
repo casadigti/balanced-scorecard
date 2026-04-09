@@ -8,3 +8,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+// Exponer supabase a la consola para pruebas de seguridad (RLS)
+if (typeof window !== 'undefined') {
+  (window as any).supabase = supabase;
+}
