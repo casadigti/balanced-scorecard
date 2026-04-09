@@ -519,15 +519,17 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-4">
               {/* Filtro Sucursal Premium */}
               <div className="glass-card flex items-center p-1 gap-1">
-                <div className="p-2 text-slate-400">
+                <div className="p-2 flex items-center gap-2 text-slate-400">
                   <Filter className="w-4 h-4" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Sucursal</span>
                 </div>
+                <div className="h-4 w-px bg-slate-200" />
                 <select
                   value={selectedSucursal}
                   onChange={(e) => setSelectedSucursal(e.target.value)}
                   title="Seleccionar Sucursal"
                   aria-label="Seleccionar Sucursal"
-                  className="px-4 py-2 text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest"
+                  className="px-3 py-2 text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer uppercase tracking-widest"
                 >
                   {sucursales.map(s => (
                     <option key={s} value={s}>{s}</option>
