@@ -7,7 +7,9 @@ import {
   Smile, 
   Info,
   Settings,
-  CheckCircle
+  CheckCircle,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '../lib/utils';
@@ -18,15 +20,18 @@ interface StrategicConfigProps {
   setHrData: (data: HRData) => void;
   onSave?: () => Promise<boolean>;
   isSaving?: boolean;
+  onClearData?: () => void;
 }
 
 export const StrategicConfig: React.FC<StrategicConfigProps> = ({
   hrData,
   setHrData,
   onSave,
-  isSaving = false
+  isSaving = false,
+  onClearData
 }) => {
   const [saveSuccess, setSaveSuccess] = React.useState(false);
+
 
   const handleSave = async () => {
     if (onSave) {
@@ -196,6 +201,38 @@ export const StrategicConfig: React.FC<StrategicConfigProps> = ({
                ))}
              </div>
            </div>
+        </div>
+      </motion.div>
+
+      {/* New System Section */}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="glass-card p-10 bg-rose-50/30 border-rose-100/50 shadow-xl"
+      >
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="max-w-xl">
+            <h4 className="text-xl font-black text-rose-800 tracking-tight mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6" /> Zona de Peligro
+            </h4>
+            <p className="text-rose-600/70 font-medium leading-relaxed">
+              Gestión crítica de datos del sistema. Estas acciones son permanentes y afectarán a todos 
+              los paneles del dashboard. Ten precaución antes de proceder.
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-start md:items-end gap-3">
+            <button
+              onClick={onClearData}
+              className="px-8 py-4 bg-rose-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-rose-700 transition-all shadow-xl shadow-rose-500/20 active:scale-95 flex items-center gap-3 border border-rose-500"
+            >
+              <Trash2 className="w-5 h-5" />
+              Limpiar Todos los Datos
+            </button>
+            <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest text-center md:text-right">
+              Elimina facturas, citas y reinicia el sistema
+            </p>
+          </div>
         </div>
       </motion.div>
     </div>

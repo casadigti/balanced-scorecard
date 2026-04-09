@@ -98,6 +98,12 @@ export default function App() {
   const [showIncomeModal, setShowIncomeModal] = useState(false);
   const [showSatisfactionModal, setShowSatisfactionModal] = useState(false);
   const [showTalentModal, setShowTalentModal] = useState(false);
+  
+  const handleClearData = async () => {
+    if (window.confirm('¿ESTÁ SEGURO? Esta acción eliminará permanentemente todas las facturas y citas cargadas de su cuenta de Supabase. Esta operación no se puede deshacer.')) {
+      await clearData();
+    }
+  };
 
 
   useEffect(() => {
@@ -569,16 +575,7 @@ export default function App() {
                  </div>
               </div>
               
-              {/* Botón limpiar datos */}
-              {dataLoaded && (
-                <button
-                  onClick={() => clearData()}
-                  title="Limpiar todos los datos cargados y reiniciar el dashboard"
-                  className="flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
-                >
-                  <span>🗑</span> Limpiar Datos
-                </button>
-              )}
+              {/* Botón limpiar filtros */}
 
               {(startDate || endDate || selectedSucursal !== 'Todas') && (
                   <button
@@ -637,7 +634,7 @@ export default function App() {
                   setInvoices={setInvoices}
                   setAppointments={setAppointments}
                   setDataLoaded={setDataLoaded}
-                  clearData={clearData}
+                  clearData={handleClearData}
                   saveToSupabase={saveToSupabase}
                   onSuccess={() => setActiveTab('dashboard')}
                 />
@@ -649,6 +646,7 @@ export default function App() {
                   setHrData={setHrData} 
                   onSave={() => saveUserSettings(hrData)}
                   isSaving={savingSettings}
+                  onClearData={handleClearData}
                 />
               )}
             </motion.div>
