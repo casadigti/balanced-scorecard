@@ -35,6 +35,8 @@ export interface HRData {
   employeePassives: number;
   employeeDetractors: number;
   trainingInvestment: number;
+  compliantProtocols: number;
+  auditedProtocols: number;
 }
 
 export interface KPIStats {
@@ -50,4 +52,5 @@ export interface KPIStats {
   sucursalesActivas: number;
   citasRealizadas: number;
   costoPorColaborador: number;
+  cumplimientoProtocolos: number;
 }

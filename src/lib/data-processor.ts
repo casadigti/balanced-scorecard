@@ -212,10 +212,10 @@ export const calculateKPIs = (
     horasInstruccion,
     indiceRotacion,
     totalPacientesUnicos,
-    totalCitas: appointments.length,
     sucursalesActivas,
     citasRealizadas,
-    costoPorColaborador: hrData.totalEmployees > 0 ? hrData.trainingInvestment / hrData.totalEmployees : 0
+    costoPorColaborador: hrData.totalEmployees > 0 ? hrData.trainingInvestment / hrData.totalEmployees : 0,
+    cumplimientoProtocolos: hrData.auditedProtocols > 0 ? (hrData.compliantProtocols / hrData.auditedProtocols) * 100 : 0
   };
 };
 

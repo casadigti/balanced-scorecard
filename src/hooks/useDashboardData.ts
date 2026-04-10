@@ -36,6 +36,8 @@ export const useDashboardData = () => {
     employeePassives: 15,
     employeeDetractors: 10,
     trainingInvestment: 50000,
+    compliantProtocols: 45,
+    auditedProtocols: 50,
   });
 
   const [savingSettings, setSavingSettings] = useState(false);
@@ -60,7 +62,9 @@ export const useDashboardData = () => {
           patientDetractors: data.nps_detractors,
           employeePromoters: data.enps_promoters,
           employeePassives: data.enps_passives,
-          employeeDetractors: data.enps_detractors
+          employeeDetractors: data.enps_detractors,
+          compliantProtocols: data.clinical_compliant || 0,
+          auditedProtocols: data.clinical_audited || 0
         });
       }
     } catch (err) {
@@ -89,6 +93,8 @@ export const useDashboardData = () => {
           enps_promoters: newData.employeePromoters,
           enps_passives: newData.employeePassives,
           enps_detractors: newData.employeeDetractors,
+          clinical_compliant: newData.compliantProtocols,
+          clinical_audited: newData.auditedProtocols,
           updated_at: new Date().toISOString()
         }, { onConflict: 'user_id' });
 

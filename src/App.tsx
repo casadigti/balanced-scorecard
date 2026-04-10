@@ -314,6 +314,38 @@ export default function App() {
           icon={Activity} 
           colorClass="text-emerald-600"
         />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <KPICard
+            title="Cumplimiento de Protocolos"
+            value={stats.cumplimientoProtocolos.toFixed(1)}
+            unit="%"
+            description={`${hrData.compliantProtocols} de ${hrData.auditedProtocols} auditorías con éxito.`}
+            icon={CheckCircle}
+            colorClass="text-emerald-600"
+            bgClass="bg-emerald-50/50"
+            delay={0}
+          />
+          <KPICard
+            title="Eficiencia Operativa"
+            value={stats.eficienciaOperativa.toFixed(1)}
+            unit="%"
+            description="Relación entre citas agendadas y efectivamente realizadas."
+            icon={Activity}
+            colorClass="text-brand-600"
+            bgClass="bg-brand-50/50"
+            delay={0.1}
+          />
+          <KPICard
+            title="Tasa de No-Show"
+            value={(100 - stats.eficienciaOperativa).toFixed(1)}
+            unit="%"
+            description="Porcentaje de citas que no llegaron a concretarse."
+            icon={AlertCircle}
+            colorClass="text-rose-600"
+            bgClass="bg-rose-50/50"
+            delay={0.2}
+          />
+        </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <ChartContainer title="Ventas por Procedimiento (Top 10)" subtitle="Análisis de facturación bruta por tipo de servicio">
             {isMounted && (

@@ -137,6 +137,35 @@ export const StrategicConfig: React.FC<StrategicConfigProps> = ({
           ))}
         </div>
 
+        {/* Clinical Excellence section */}
+        <div className="mb-12 pt-8 border-t border-slate-100">
+          <h4 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-500" /> Excelencia Clínica - Protocolos
+          </h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-3 p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest" htmlFor="compliantProtocols">Protocolos Cumplidos (Auditados OK)</label>
+              <input
+                id="compliantProtocols"
+                type="number"
+                value={hrData.compliantProtocols}
+                onChange={(e) => setHrData({ ...hrData, [e.target.id]: parseInt(e.target.value) || 0 })}
+                className="w-full px-5 py-3.5 bg-white border border-slate-100 rounded-xl font-black text-slate-800 text-lg shadow-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-3 p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
+              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest" htmlFor="auditedProtocols">Total Protocolos Auditados</label>
+              <input
+                id="auditedProtocols"
+                type="number"
+                value={hrData.auditedProtocols}
+                onChange={(e) => setHrData({ ...hrData, [e.target.id]: parseInt(e.target.value) || 0 })}
+                className="w-full px-5 py-3.5 bg-white border border-slate-100 rounded-xl font-black text-slate-800 text-lg shadow-sm focus:ring-4 focus:ring-brand-500/10 focus:border-brand-500 outline-none transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
            {/* NPS Feedback section */}
            <div className="p-8 bg-brand-50/30 rounded-3xl border border-brand-100/50 relative overflow-hidden group">
