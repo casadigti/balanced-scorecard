@@ -8,6 +8,7 @@ export interface Invoice {
   totalFacturado: number;
   estatus: string;
   procedimiento: string;
+  ars: string;
 }
 
 export interface Appointment {
@@ -21,6 +22,8 @@ export interface Appointment {
   estatus: string;
   doctor: string;
   procedimiento: string;
+  ars: string;
+  facturada?: string; // Columna 'Facturada' (Si/No) del reporte de citas MedicalCore
 }
 
 export interface HRData {
@@ -48,6 +51,8 @@ export interface KPIStats {
   horasInstruccion: number;
   indiceRotacion: number;
   totalPacientesUnicos: number;
+  newPatients: number;
+  recurringPatients: number;
   totalCitas: number;
   sucursalesActivas: number;
   citasRealizadas: number;

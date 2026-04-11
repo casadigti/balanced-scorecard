@@ -84,6 +84,8 @@ export default function App() {
     patientsByBranch,
     enpsDistribution,
     patientSatisfactionDistribution,
+    patientAcquisitionDistribution,
+    salesByARS,
     sucursales,
     setInvoices,
     setAppointments,
@@ -171,13 +173,21 @@ export default function App() {
           />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <ChartContainer title="Ingresos por Sucursal" subtitle="Distribución geográfica de la facturación">
+        <div className="">
+          <ChartContainer title="Rentabilidad por ARS (Aseguradora)" subtitle="Distribución de ingresos por entidad pagadora">
             {isMounted && (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesByBranch}>
+              <ResponsiveContainer width="100%" height={420}>
+                <BarChart data={salesByARS} margin={{ bottom: 60, left: 30, right: 30 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11, fontWeight: 700 }} />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }} 
+                    angle={-35}
+                    textAnchor="end"
+                    interval={0}
+                  />
                   <YAxis hide />
                   <Tooltip
                     cursor={{ fill: '#f8fafc' }}
@@ -185,30 +195,37 @@ export default function App() {
                     formatter={(value: any) => [formatCurrency(Number(value) || 0), 'Ingresos']}
                   />
                   <Bar dataKey="value" radius={[10, 10, 0, 0]}>
-                    {salesByBranch.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    {salesByARS.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[(index + 3) % CHART_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </ChartContainer>
-          <div className="glass-card p-10 premium-gradient-blue text-white flex flex-col justify-center">
-            <h4 className="text-2xl font-black mb-4 tracking-tight">Análisis Financiero</h4>
-            <p className="text-blue-100 font-medium leading-relaxed mb-8">
-              El cumplimiento de meta se sitúa en el <span className="text-white font-black">{stats.cumplimientoMeta.toFixed(1)}%</span>. 
+        </div>
+        
+        <div className="glass-card mt-8 p-10 bg-slate-900 text-white">
+          <h4 className="text-2xl font-black mb-4 tracking-tight">Análisis de Cartera y Rentabilidad</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <p className="text-slate-400 font-medium leading-relaxed">
+              El cumplimiento de meta se sitúa en el <span className="text-brand-400 font-black">{stats.cumplimientoMeta.toFixed(1)}%</span>. 
               {salesByBranch.length > 0 ? (
-                <>La sucursal de <span className="text-white font-black">{salesByBranch[0]?.name}</span> lidera la generación de valor, aportando el {((salesByBranch[0]?.value / stats.facturacionTotal) * 100).toFixed(0)}% del total facturado.</>
+                <>La sucursal de <span className="text-white font-black">{salesByBranch[0]?.name}</span> lidera la generación de valor.</>
               ) : 'Cargue datos para ver el desglose por sucursal.'}
             </p>
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => setShowIncomeModal(true)}
-                className="bg-white text-brand-600 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 transition-colors shadow-lg active:scale-95"
-              >
-                Ver Detalle de Ingresos <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+            <p className="text-slate-400 font-medium leading-relaxed">
+              En cuanto a pagadores, <span className="text-white font-black">{salesByARS[0]?.name || 'Privado'}</span> representa la mayor fuente de ingresos 
+              con un total de <span className="text-emerald-400 font-black">{formatCurrency(salesByARS[0]?.value || 0)}</span> facturados en este periodo.
+            </p>
+          </div>
+          <div className="mt-8 flex items-center gap-4">
+            <button 
+              onClick={() => setShowIncomeModal(true)}
+              className="bg-brand-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 hover:bg-brand-700 transition-colors shadow-lg active:scale-95"
+            >
+              Ver Detalle Completo <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </section>
@@ -287,11 +304,39 @@ export default function App() {
             )}
           </ChartContainer>
 
-          <div className="glass-card p-10 bg-slate-900 text-white flex flex-col justify-center">
-            <h4 className="text-2xl font-black mb-4 tracking-tight">Voz del Paciente</h4>
+          <ChartContainer title="Adquisición vs Fidelización" subtitle="Pacientes Nuevos vs Recurrentes en el periodo">
+            {isMounted && (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={patientAcquisitionDistribution || []}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={5}
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {(patientAcquisitionDistribution || []).map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '24px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </ChartContainer>
+
+          <div className="glass-card p-10 bg-slate-900 text-white flex flex-col justify-center lg:col-span-2">
+            <h4 className="text-2xl font-black mb-4 tracking-tight">Voz del Paciente y Fidelización</h4>
             <p className="text-slate-400 font-medium leading-relaxed mb-8">
               Con un NPS de <span className="text-brand-400 font-black">{stats.npsPacientes.toFixed(1)}</span>, la percepción de calidad se mantiene en rango de excelencia. 
-              Se han atendido <span className="text-white font-black">{stats.totalPacientesUnicos}</span> pacientes únicos, con una tasa de conversión de citas del {stats.eficienciaOperativa.toFixed(1)}%.
+              De los <span className="text-white font-black">{stats.totalPacientesUnicos}</span> pacientes atendidos, 
+              un <span className="text-emerald-400 font-black">{((stats.newPatients / stats.totalPacientesUnicos) * 100).toFixed(1)}%</span> son captaciones nuevas 
+              y un <span className="text-blue-400 font-black">{((stats.recurringPatients / stats.totalPacientesUnicos) * 100).toFixed(1)}%</span> son pacientes que regresan al centro.
             </p>
             <div className="flex items-center gap-4">
               <button 

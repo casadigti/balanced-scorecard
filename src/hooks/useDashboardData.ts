@@ -11,6 +11,8 @@ import {
   getPatientsByBranch,
   getENPSDistribution,
   getPatientSatisfactionDistribution,
+  getPatientAcquisitionDistribution,
+  getSalesByARS,
   parseDate
 } from '../lib/data-processor';
 
@@ -176,7 +178,9 @@ export const useDashboardData = () => {
             duracion: 15,
             estatus: a.status || 'Programada',
             doctor: a.medico || 'Desconocido',
-            procedimiento: a.especialidad || 'General'
+            procedimiento: a.especialidad || 'General',
+            ars: a.ars || 'Privado',
+            facturada: a.facturada || 'No'
           })));
         }
 
@@ -215,8 +219,12 @@ export const useDashboardData = () => {
           estatus: i.estatus
         }));
 
-        const { error } = await supabase.from('invoices').upsert(invToSave, { onConflict: 'id' });
-        if (error) throw error;
+        const BATCH_SIZE = 200;
+        for (let i = 0; i < invToSave.length; i += BATCH_SIZE) {
+          const batch = invToSave.slice(i, i + BATCH_SIZE);
+          const { error } = await supabase.from('invoices').upsert(batch, { onConflict: 'id' });
+          if (error) throw error;
+        }
       }
 
       if (newAppointments.length > 0) {
@@ -230,11 +238,17 @@ export const useDashboardData = () => {
           medico: a.doctor,
           especialidad: a.procedimiento,
           sucursal: a.sucursal,
-          status: a.estatus
+          status: a.estatus,
+          ars: a.ars,
+          facturada: (a as any).facturada || 'No'
         }));
 
-        const { error } = await supabase.from('appointments').upsert(appToSave, { onConflict: 'id' });
-        if (error) throw error;
+        const BATCH_SIZE = 200;
+        for (let i = 0; i < appToSave.length; i += BATCH_SIZE) {
+          const batch = appToSave.slice(i, i + BATCH_SIZE);
+          const { error } = await supabase.from('appointments').upsert(batch, { onConflict: 'id' });
+          if (error) throw error;
+        }
       }
     } catch (err) {
       console.error('Error guardando en Supabase:', err);
@@ -293,8 +307,8 @@ export const useDashboardData = () => {
   }, [appointments, selectedSucursal, startDate, endDate]);
 
   const stats = useMemo(() => {
-    return calculateKPIs(filteredInvoices, filteredAppointments, hrData);
-  }, [filteredInvoices, filteredAppointments, hrData]);
+    return calculateKPIs(filteredInvoices, filteredAppointments, hrData, invoices, appointments);
+  }, [filteredInvoices, filteredAppointments, hrData, invoices, appointments]);
 
   const salesByProcedure = useMemo(() => getSalesByProcedure(filteredInvoices), [filteredInvoices]);
   const appointmentsByProcedure = useMemo(() => getAppointmentsByProcedure(filteredAppointments), [filteredAppointments]);
@@ -302,6 +316,8 @@ export const useDashboardData = () => {
   const patientsByBranch = useMemo(() => getPatientsByBranch(filteredInvoices, filteredAppointments), [filteredInvoices, filteredAppointments]);
   const enpsDistribution = useMemo(() => getENPSDistribution(hrData), [hrData]);
   const patientSatisfactionDistribution = useMemo(() => getPatientSatisfactionDistribution(hrData), [hrData]);
+  const patientAcquisitionDistribution = useMemo(() => getPatientAcquisitionDistribution(stats), [stats]);
+  const salesByARS = useMemo(() => getSalesByARS(filteredInvoices, appointments), [filteredInvoices, appointments]);
 
 
   const sucursales = useMemo(() => {
@@ -349,6 +365,8 @@ export const useDashboardData = () => {
     patientsByBranch,
     enpsDistribution,
     patientSatisfactionDistribution,
+    patientAcquisitionDistribution,
+    salesByARS,
     sucursales,
     dataLoaded,
     setDataLoaded,

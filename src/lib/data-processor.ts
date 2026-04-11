@@ -79,20 +79,29 @@ export const findValueInRow = (row: any, keys: string[]): any => {
   if (!row) return undefined;
   const rowKeys = Object.keys(row);
   
-  // Limpiamos los nombres de las columnas que buscamos para que sea robusto
-  const targetKeys = keys.map(k => k.toLowerCase().replace(/[\ufeff\u200b\u200c\u200d\u200e\u200f]/g, '').trim());
+  // Normalizar una cadena: minúsculas, sin BOM, espacios colapsados
+  const normalize = (s: string) => 
+    s.toLowerCase()
+     .replace(/[\ufeff\u200b\u200c\u200d\u200e\u200f]/g, '')
+     .replace(/\s+/g, ' ')
+     .trim();
 
-  for (const targetKey of targetKeys) {
-    // 1. Intento directo
-    if (row[targetKey] !== undefined) return row[targetKey];
+  const normalizedTargets = keys.map(normalize);
+
+  for (const target of normalizedTargets) {
+    // 1. Intento directo con el target normalizado
+    if (row[target] !== undefined) return row[target];
     
-    // 2. Búsqueda insensible a mayúsculas y resistente a BOM en las llaves del objeto actual
-    const foundKey = rowKeys.find(k => {
-      const normalizedK = k.replace(/[\ufeff\u200b\u200c\u200d\u200e\u200f]/g, '').toLowerCase().trim();
-      return normalizedK === targetKey;
-    });
-    
+    // 2. Búsqueda por normalización de llaves existentes
+    const foundKey = rowKeys.find(k => normalize(k) === target);
     if (foundKey) return row[foundKey];
+
+    // 3. Fallback: búsqueda parcial (si la columna contiene el nombre)
+    const partialKey = rowKeys.find(k => {
+      const nk = normalize(k);
+      return nk.includes(target) || target.includes(nk);
+    });
+    if (partialKey) return row[partialKey];
   }
   
   return undefined;
@@ -124,14 +133,15 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
 
       return {
         id,
-        citaId: cleanString(findValueInRow(row, ['Cita ID', 'ID Cita', 'Cita', 'No. Cita'])),
-        pacienteId: cleanString(findValueInRow(row, ['Paciente ID', 'ID paciente', 'No. Record', 'ID Paciente'])),
-        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre'])),
-        fecha: parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura', 'Fecha Creacion'])),
+        citaId: cleanString(findValueInRow(row, ['Cita ID', 'ID Cita', 'Cita', 'No. Cita', 'Referencia'])),
+        pacienteId: cleanString(findValueInRow(row, ['Paciente ID', 'ID paciente', 'No. Record', 'ID Paciente', 'Record'])),
+        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede', 'Centro'])),
+        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente'])),
+        fecha: parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura', 'Fecha Creacion', 'Emisión'])),
         totalFacturado,
-        estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado'])),
-        procedimiento: cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio', 'Procedimientos']))
+        estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado', 'Status'])),
+        procedimiento: cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio', 'Procedimientos', 'Producto'])),
+        ars: 'Sin Datos' 
       };
     })
     .filter((i): i is Invoice => i !== null);
@@ -149,12 +159,14 @@ export const processAppointments = (data: any[]): Appointment[] => {
         facturaId: cleanString(findValueInRow(row, ['No Factura', 'Factura', 'ID Factura', 'No. Factura'])),
         pacienteId: cleanString(findValueInRow(row, ['ID paciente', 'ID Paciente', 'Paciente ID', 'No. Record'])),
         sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre'])),
-        fechaCita: parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha', 'Fecha Cita'])),
+        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente'])),
+        fechaCita: parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha', 'Cita'])),
         duracion: parseInt(cleanString(findValueInRow(row, ['Duracion de Cita', 'Duración', 'Minutos']))) || 15,
-        estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado'])),
-        doctor: cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico', 'Doctor Tratante'])),
-        procedimiento: cleanString(findValueInRow(row, ['Procedimientos', 'Procedimiento', 'Servicio Solicitado', 'Servicio']))
+        estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado', 'Estatus Cita', 'Estado Cita', 'Status'])),
+        doctor: cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico', 'Doctor Tratante', 'Profesional'])),
+        procedimiento: cleanString(findValueInRow(row, ['Procedimientos', 'Procedimiento', 'Servicio Solicitado', 'Servicio', 'Especialidad', 'Producto'])),
+        ars: cleanString(findValueInRow(row, ['Aseguradora ARS del paciente', 'Aseguradora ARS', 'ARS', 'Aseguradora', 'Seguro', 'Entidad'])) || 'N/A',
+        facturada: cleanString(findValueInRow(row, ['Facturada'])) // columna Si/No separada
       };
     })
     .filter((a): a is Appointment => a !== null);
@@ -163,7 +175,9 @@ export const processAppointments = (data: any[]): Appointment[] => {
 export const calculateKPIs = (
   invoices: Invoice[], 
   appointments: Appointment[], 
-  hrData: HRData
+  hrData: HRData,
+  allInvoices: Invoice[] = [],
+  allAppointments: Appointment[] = []
 ): KPIStats => {
   const facturacionTotal = invoices.reduce((sum, inv) => sum + inv.totalFacturado, 0);
   const cumplimientoMeta = hrData.metaFacturacion > 0 
@@ -215,8 +229,76 @@ export const calculateKPIs = (
     sucursalesActivas,
     citasRealizadas,
     costoPorColaborador: hrData.totalEmployees > 0 ? hrData.trainingInvestment / hrData.totalEmployees : 0,
-    cumplimientoProtocolos: hrData.auditedProtocols > 0 ? (hrData.compliantProtocols / hrData.auditedProtocols) * 100 : 0
+    cumplimientoProtocolos: hrData.auditedProtocols > 0 ? (hrData.compliantProtocols / hrData.auditedProtocols) * 100 : 0,
+    ...calculatePatientAcquisition(invoices, appointments, allInvoices, allAppointments)
   };
+};
+
+const calculatePatientAcquisition = (
+  filteredInvoices: Invoice[],
+  filteredAppointments: Appointment[],
+  allInvoices: Invoice[],
+  allAppointments: Appointment[]
+) => {
+  const currentPatients = new Set([
+    ...filteredInvoices.map(i => i.pacienteId),
+    ...filteredAppointments.map(a => a.pacienteId)
+  ]);
+
+  if (currentPatients.size === 0) return { newPatients: 0, recurringPatients: 0 };
+
+  // Crear un mapa de la primera fecha de cada paciente en TODA la historia
+  const firstVisitMap = new Map<string, number>();
+
+  const processHistory = (record: { pacienteId: string, fecha?: Date, fechaCita?: Date }) => {
+    const pId = record.pacienteId;
+    if (!pId) return;
+    const date = record.fecha || record.fechaCita;
+    if (!date) return;
+    
+    const time = date.getTime();
+    if (!firstVisitMap.has(pId) || time < firstVisitMap.get(pId)!) {
+      firstVisitMap.set(pId, time);
+    }
+  };
+
+  allInvoices.forEach(i => processHistory({ pacienteId: i.pacienteId, fecha: i.fecha }));
+  allAppointments.forEach(a => processHistory({ pacienteId: a.pacienteId, fechaCita: a.fechaCita }));
+
+  // Encontrar el inicio del periodo filtrado (la fecha más antigua en los datos filtrados)
+  const filteredDates = [
+    ...filteredInvoices.map(i => i.fecha.getTime()),
+    ...filteredAppointments.map(a => a.fechaCita.getTime())
+  ];
+  
+  const periodStart = filteredDates.length > 0 ? Math.min(...filteredDates) : 0;
+  const periodEnd = filteredDates.length > 0 ? Math.max(...filteredDates) : Infinity;
+
+  let newPatientsCount = 0;
+  let recurringPatientsCount = 0;
+
+  currentPatients.forEach(pId => {
+    const firstVisit = firstVisitMap.get(pId);
+    // Un paciente es NUEVO si su primera visita está dentro del periodo actual
+    // Y no tiene nada antes del periodo actual.
+    if (firstVisit && firstVisit >= periodStart && firstVisit <= periodEnd) {
+      newPatientsCount++;
+    } else {
+      recurringPatientsCount++;
+    }
+  });
+
+  return {
+    newPatients: newPatientsCount,
+    recurringPatients: recurringPatientsCount
+  };
+};
+
+export const getPatientAcquisitionDistribution = (stats: KPIStats) => {
+  return [
+    { name: 'Nuevos', value: stats.newPatients, color: '#10b981' },
+    { name: 'Recurrentes', value: stats.recurringPatients, color: '#3b82f6' }
+  ];
 };
 
 export const getAppointmentsByProcedure = (appointments: Appointment[]) => {
@@ -297,3 +379,50 @@ export const getPatientSatisfactionDistribution = (hrData: HRData) => {
   ];
 };
 
+export const getSalesByARS = (invoices: Invoice[], appointments: Appointment[]) => {
+  const map = new Map<string, number>();
+  const appByCitaId = new Map<string, string>();
+  const appByFacturaId = new Map<string, string>();
+  const appByPatientDate = new Map<string, string>();
+  // Normalizar ID: quitar BOM (﻿), decimales .0, y pasar a minúsculas
+  const normalizeId = (id: any) => String(id || '')
+    .replace(/[\uFEFF\u200B\u200C\u200D\u200E\u200F]/g, '')
+    .replace(/\.0$/, '')
+    .trim();
+
+  // El mapa de ARS es solo una tabla de referencia: asocia cada Cita ID
+  // con la aseguradora del paciente. NO filtramos por estatus aquí porque
+  // las facturas son las que determinan si hubo ingreso real.
+  appointments.forEach(app => {
+    const rawArs = app.ars || '';
+    const ars = (!rawArs || rawArs === 'N/A' || rawArs === 'N/D') ? 'Privado' : rawArs;
+    
+    if (app.id) appByCitaId.set(normalizeId(app.id), ars);
+    if (app.facturaId) appByFacturaId.set(normalizeId(app.facturaId), ars);
+    
+    if (app.paciente && app.fechaCita) {
+      const key = `${app.paciente.trim().toLowerCase()}_${app.fechaCita.toISOString().split('T')[0]}`;
+      appByPatientDate.set(key, ars);
+    }
+  });
+
+  invoices.forEach(inv => {
+    const normCitaId = normalizeId(inv.citaId);
+    const normInvId = normalizeId(inv.id);
+    const patientDateKey = inv.paciente && inv.fecha 
+      ? `${normalizeId(inv.paciente)}_${inv.fecha.toISOString().split('T')[0]}`
+      : null;
+    
+    let ars = appByCitaId.get(normCitaId) || 
+              appByFacturaId.get(normInvId) || 
+              (patientDateKey ? appByPatientDate.get(patientDateKey) : null);
+    
+    if (!ars || ars === 'N/A' || ars === 'undefined') ars = 'Privado';
+    
+    map.set(ars, (map.get(ars) || 0) + (inv.totalFacturado || 0));
+  });
+  
+  return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+};
