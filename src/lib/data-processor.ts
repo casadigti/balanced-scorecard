@@ -179,7 +179,19 @@ export const calculateKPIs = (
   allInvoices: Invoice[] = [],
   allAppointments: Appointment[] = []
 ): KPIStats => {
-  const facturacionTotal = invoices.reduce((sum, inv) => sum + inv.totalFacturado, 0);
+  const canceledStatuses = ['cancelada', 'eliminada', 'no asistió', 'no asistio', 'ausente'];
+  
+  const validInvoices = invoices.filter(inv => {
+    if (!inv.citaId) return true;
+    const linkedAppointment = appointments.find(a => 
+      a.id === inv.citaId || a.id === String(inv.citaId)
+    );
+    if (!linkedAppointment) return true;
+    const appStatus = (linkedAppointment.estatus || '').toLowerCase();
+    return !canceledStatuses.some(s => appStatus.includes(s));
+  });
+  
+  const facturacionTotal = validInvoices.reduce((sum, inv) => sum + inv.totalFacturado, 0);
   const cumplimientoMeta = hrData.metaFacturacion > 0 
     ? (facturacionTotal / hrData.metaFacturacion) * 100 
     : 0;
@@ -193,15 +205,33 @@ export const calculateKPIs = (
   const npsPacientes = calculateNPS(hrData.patientPromoters, hrData.patientPassives, hrData.patientDetractors);
   const enps = calculateNPS(hrData.employeePromoters, hrData.employeePassives, hrData.employeeDetractors);
   
-  const totalPacientesUnicos = new Set([
-    ...invoices.map(i => i.pacienteId),
-    ...appointments.map(a => a.pacienteId)
-  ]).size;
+  // Pacientes únicos: desde citas realizadas (nombre con mínimo 3 caracteres)
+  const citasRealizadasList = appointments.filter(a => {
+    const s = a.estatus.toLowerCase();
+    const isPositiveStatus = s.includes('realizada') || s.includes('confirmada') || s.includes('atendido') || s.includes('asistió') || s.includes('asistio') || s.includes('pagada') || s.includes('cobrada');
+    const hasFacturaId = a.facturaId && a.facturaId.trim() !== '' && a.facturaId !== 'undefined';
+    const isNotCanceled = !canceledStatuses.some(s => a.estatus.toLowerCase().includes(s));
+    return isPositiveStatus || (hasFacturaId && isNotCanceled);
+  });
   
-  // Citas Realizadas (según requerimiento: Realizada + Facturada)
+  const totalPacientesUnicos = new Set([
+    ...validInvoices.map(i => i.paciente),
+    ...citasRealizadasList.map(a => a.paciente)
+  ].map(p => (p || '').toLowerCase().trim()).filter(n => n.length >= 3)).size;
+  
+  // Citas Realizadas (según requerimiento: Realizada + Facturada + cita con facturaId asignada y no cancelada)
   const citasRealizadas = appointments.filter(a => {
     const s = a.estatus.toLowerCase();
-    return s.includes('realizada') || s.includes('facturada');
+    const isPositiveStatus = s.includes('realizada') || s.includes('facturada') || 
+                             s.includes('confirmada') || s.includes('finalizada') || 
+                             s.includes('atendido') || s.includes('asistio') || 
+                             s.includes('asistió') || s.includes('completad') ||
+                             s.includes('ejecutad') || s.includes('cobrad') || s.includes('pagad');
+    const hasFacturaId = a.facturaId && a.facturaId.trim() !== '' && a.facturaId !== 'undefined';
+    const isNotCanceled = !canceledStatuses.some(s => a.estatus.toLowerCase().includes(s));
+    // Regla: Pendiente + Facturada = Realizada
+    const isReclassified = (s.includes('pendient') || s === '') && hasFacturaId;
+    return isPositiveStatus || (hasFacturaId && isNotCanceled && isReclassified);
   }).length;
 
   const eficienciaOperativa = appointments.length > 0 
@@ -226,6 +256,7 @@ export const calculateKPIs = (
     horasInstruccion,
     indiceRotacion,
     totalPacientesUnicos,
+    totalCitas: appointments.length,
     sucursalesActivas,
     citasRealizadas,
     costoPorColaborador: hrData.totalEmployees > 0 ? hrData.trainingInvestment / hrData.totalEmployees : 0,
@@ -358,9 +389,71 @@ export const getPatientsByBranch = (invoices: Invoice[], appointments: Appointme
   invoices.forEach(processRecord);
   appointments.forEach(processRecord);
   
-  return Array.from(map.entries())
-    .map(([name, set]) => ({ name, value: set.size }))
+return Array.from(map.entries())
+    .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
+};
+
+export const transformRawInvoice = (raw: any): Invoice => ({
+  id: raw.numero || raw.id,
+  citaId: raw.cita_id || '',
+  pacienteId: raw.paciente_id || '',
+  sucursal: normalizeSucursal(raw.sucursal || ''),
+  paciente: raw.cliente || 'Desconocido',
+  fecha: parseDate(raw.fecha),
+  totalFacturado: Number(raw.monto) || 0,
+  estatus: raw.estatus || 'Pagada',
+  procedimiento: raw.procedimiento || 'General',
+  ars: 'Sin Datos'
+});
+
+export const transformRawAppointment = (raw: any): Appointment => ({
+  id: raw.cita_id || raw.id,
+  facturaId: raw.factura_id || '',
+  pacienteId: raw.paciente_id || '',
+  sucursal: normalizeSucursal(raw.sucursal || ''),
+  paciente: raw.paciente || 'Desconocido',
+  fechaCita: parseDate(raw.fecha),
+  duracion: 15,
+  estatus: raw.status || raw.estatus || 'Programada',
+  doctor: raw.medico || 'Desconocido',
+  procedimiento: raw.especialidad || 'General',
+  ars: raw.ars || 'Privado',
+  facturada: raw.facturada || 'No'
+});
+
+export const getPeriods = (invoices: Invoice[], appointments: Appointment[]): string[] => {
+  const s = new Set<string>();
+  invoices.forEach(i => {
+    if (i.fecha) {
+      const d = new Date(i.fecha);
+      if (!isNaN(d.getTime()))
+        s.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  });
+  appointments.forEach(a => {
+    if (a.fechaCita) {
+      const d = new Date(a.fechaCita);
+      if (!isNaN(d.getTime()))
+        s.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    }
+  });
+  return Array.from(s).sort().reverse();
+};
+
+export const filterByPeriod = (invoices: Invoice[], appointments: Appointment[], period: string): { invoices: Invoice[], appointments: Appointment[] } => {
+  if (!period) return { invoices, appointments };
+  const [y, m] = period.split('-').map(Number);
+  return {
+    invoices: invoices.filter(i => {
+      const d = new Date(i.fecha);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    }),
+    appointments: appointments.filter(a => {
+      const d = new Date(a.fechaCita);
+      return d.getFullYear() === y && d.getMonth() + 1 === m;
+    })
+  };
 };
 
 export const getENPSDistribution = (hrData: HRData) => {

@@ -11,7 +11,10 @@ export default defineConfig(({ mode }) => {
             react(),
             tailwindcss(),
             VitePWA({
-                registerType: 'autoUpdate',
+                registerType: 'manual',
+                skipWaiting: false,
+                clientsClaim: true,
+                invalidateVersionPrefix: 'v2.',
                 includeAssets: ['favicon.svg', 'logo.png'],
                 manifest: {
                     name: 'Casadig Balanced Scorecard',

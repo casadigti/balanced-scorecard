@@ -72,9 +72,13 @@ export default function App() {
     selectedSucursal,
     setSelectedSucursal,
     startDate,
-    setStartDate,
     endDate,
-    setEndDate,
+    pendingStartDate,
+    setPendingStartDate,
+    pendingEndDate,
+    setPendingEndDate,
+    applyFilters,
+    isUpdating,
     hrData,
     setHrData,
     stats,
@@ -622,15 +626,16 @@ export default function App() {
                 </select>
               </div>
 
-              {/* Filtro Fecha Premium */}
+{/* Filtro Fecha Premium */}
               <div className="glass-card flex flex-col sm:flex-row items-stretch sm:items-center p-1.5 gap-2 sm:gap-3 w-full sm:w-auto">
                  <div className="flex items-center gap-2 px-2 sm:pl-3">
-                   <Calendar className="w-4 h-4 text-brand-600 flex-shrink-0" />
-                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-10 sm:w-auto">Desde</span>
+                   <Calendar className={`w-4 h-4 ${isUpdating ? 'text-amber-500 animate-pulse' : 'text-brand-600'}`} />
+                   <span className="text-[10px] font-bold uppercase tracking-wider w-10 sm:w-auto">Desde</span>
                    <input
                      type="date"
-                     value={startDate}
-                     onChange={(e) => setStartDate(e.target.value)}
+                     value={pendingStartDate}
+                     onChange={(e) => setPendingStartDate(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                      title="Fecha de Inicio"
                      aria-label="Fecha de Inicio"
                      className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer flex-1"
@@ -639,24 +644,34 @@ export default function App() {
                  <div className="hidden sm:block h-4 w-px bg-slate-200" />
                  <div className="h-px w-full bg-slate-200 sm:hidden block" />
                  <div className="flex items-center gap-2 px-2 sm:pr-3">
-                   <Calendar className="w-4 h-4 text-transparent sm:hidden flex-shrink-0" />
-                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider w-10 sm:w-auto">Hasta</span>
+                   <Calendar className={`w-4 h-4 ${isUpdating ? 'text-amber-500 animate-pulse' : 'text-transparent sm:hidden'}`} />
+                   <span className="text-[10px] font-bold uppercase tracking-wider w-10 sm:w-auto">Hasta</span>
                    <input
                      type="date"
-                     value={endDate}
-                     onChange={(e) => setEndDate(e.target.value)}
+                     value={pendingEndDate}
+                     onChange={(e) => setPendingEndDate(e.target.value)}
+                     onKeyDown={(e) => e.key === 'Enter' && applyFilters()}
                      title="Fecha de Fin"
                      aria-label="Fecha de Fin"
                      className="text-xs font-black text-slate-700 bg-transparent outline-none cursor-pointer flex-1"
                    />
                  </div>
-              </div>
-              
-              {/* Botón limpiar filtros */}
+<button
+                    onClick={applyFilters}
+                    disabled={isUpdating}
+                    className={`px-3 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all ${isUpdating ? 'bg-amber-100 text-amber-600' : 'bg-brand-600 text-white hover:bg-brand-700'}`}
+                  >
+                    {isUpdating ? '...' : 'Apply'}
+                  </button>
+               </div>
+               
+{/* Botón limpiar filtros */}
 
               {(startDate || endDate || selectedSucursal !== 'Todas') && (
                   <button
                     onClick={() => {
+                      setPendingStartDate('');
+                      setPendingEndDate('');
                       setStartDate('');
                       setEndDate('');
                       setSelectedSucursal('Todas');

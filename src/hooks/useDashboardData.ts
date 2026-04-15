@@ -23,8 +23,11 @@ export const useDashboardData = () => {
   const [selectedSucursal, setSelectedSucursal] = useState('Todas');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [pendingStartDate, setPendingStartDate] = useState('');
+  const [pendingEndDate, setPendingEndDate] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   
   const [hrData, setHrData] = useState<HRData>({
     metaFacturacion: 1500000,
@@ -112,12 +115,17 @@ export const useDashboardData = () => {
 
   // Cargar datos iniciales desde Supabase
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchData = async () => {
       setLoading(true);
+      console.log('BSC: Iniciando carga de datos...');
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        console.log('BSC: Sesión:', session ? 'activa' : 'no hay sesión');
+        
         if (!session) {
-          setLoading(false);
+          if (isMounted) setLoading(false);
           return;
         }
 
@@ -136,7 +144,10 @@ export const useDashboardData = () => {
               .range(from, to)
               .order('fecha', { ascending: false });
             
-            if (error) throw error;
+            if (error) {
+              console.error(`BSC Error en ${table}:`, error);
+              throw error;
+            }
             if (!data || data.length === 0) break;
             
             results = [...results, ...data];
@@ -150,15 +161,24 @@ export const useDashboardData = () => {
         const invData = await fetchAllFromTable('invoices');
         const appData = await fetchAllFromTable('appointments');
 
-        console.log(`BSC Debug: Descargadas ${invData?.length || 0} facturas (Paginado)`);
-        console.log(`BSC Debug: Descargadas ${appData?.length || 0} citas (Paginado)`);
+        console.log(`BSC: Descargadas ${invData?.length || 0} facturas`);
+        console.log(`BSC: Descargadas ${appData?.length || 0} citas`);
+
+        if (!isMounted) return;
 
         if (invData && invData.length > 0) {
+          const normalizeSucursalBD = (s: string) => {
+            const n = (s || '').toLowerCase();
+            if (n.includes('santo domingo')) return 'Santo Domingo';
+            if (n.includes('san francisco')) return 'San Francisco de Macorís';
+            if (n.includes('cotu')) return 'Cotuí';
+            return s || 'Desconocida';
+          };
           setInvoices(invData.map(i => ({
             id: i.numero || i.id,
             citaId: i.cita_id || '',
             pacienteId: i.paciente_id || '',
-            sucursal: i.sucursal || 'Desconocida',
+            sucursal: normalizeSucursalBD(i.sucursal),
             paciente: i.cliente || 'Desconocido',
             fecha: parseDate(i.fecha),
             totalFacturado: Number(i.monto),
@@ -168,15 +188,22 @@ export const useDashboardData = () => {
         }
 
         if (appData && appData.length > 0) {
+          const normalizeSucursalBD = (s: string) => {
+            const n = (s || '').toLowerCase();
+            if (n.includes('santo domingo')) return 'Santo Domingo';
+            if (n.includes('san francisco')) return 'San Francisco de Macorís';
+            if (n.includes('cotu')) return 'Cotuí';
+            return s || 'Desconocida';
+          };
           setAppointments(appData.map(a => ({
             id: a.cita_id || a.id,
             facturaId: a.factura_id || '',
             pacienteId: a.paciente_id || '',
-            sucursal: a.sucursal || 'Desconocida',
+            sucursal: normalizeSucursalBD(a.sucursal),
             paciente: a.paciente || 'Desconocido',
             fechaCita: parseDate(a.fecha),
             duracion: 15,
-            estatus: a.status || 'Programada',
+            estatus: a.status || a.estatus || 'Programada',
             doctor: a.medico || 'Desconocido',
             procedimiento: a.especialidad || 'General',
             ars: a.ars || 'Privado',
@@ -188,14 +215,32 @@ export const useDashboardData = () => {
           setDataLoaded(true);
         }
       } catch (err) {
-        console.error('Error cargando datos:', err);
+        console.error('BSC Error cargando datos:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
     fetchData();
-  }, [fetchUserSettings]);
+
+    // Escuchar cambios de sesión para recargar datos cuando el usuario se loguee
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('BSC: Cambio de sesión:', event, session ? 'con sesión' : 'sin sesión');
+      if (event === 'SIGNED_IN' && session) {
+        fetchData();
+      }
+      if (event === 'SIGNED_OUT') {
+        setInvoices([]);
+        setAppointments([]);
+        setDataLoaded(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const saveToSupabase = useCallback(async (newInvoices: Invoice[], newAppointments: Appointment[]) => {
     try {
@@ -343,6 +388,33 @@ export const useDashboardData = () => {
     }
   };
 
+  const applyFilters = useCallback(() => {
+    setIsUpdating(true);
+    setTimeout(() => {
+      setStartDate(pendingStartDate);
+      setEndDate(pendingEndDate);
+      setIsUpdating(false);
+    }, 300);
+  }, [pendingStartDate, pendingEndDate]);
+
+  const cancelFilters = useCallback(() => {
+    setPendingStartDate(startDate);
+    setPendingEndDate(endDate);
+    setIsUpdating(false);
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    if (pendingStartDate !== startDate || pendingEndDate !== endDate) {
+      setIsUpdating(true);
+      const timer = setTimeout(() => {
+        setStartDate(pendingStartDate);
+        setEndDate(pendingEndDate);
+        setIsUpdating(false);
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  }, [pendingStartDate, pendingEndDate]);
+
   return {
     invoices,
     setInvoices,
@@ -356,6 +428,13 @@ export const useDashboardData = () => {
     setStartDate,
     endDate,
     setEndDate,
+    pendingStartDate,
+    setPendingStartDate,
+    pendingEndDate,
+    setPendingEndDate,
+    applyFilters,
+    cancelFilters,
+    isUpdating,
     hrData,
     setHrData,
     stats,
