@@ -116,11 +116,20 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
       const precioRaw = findValueInRow(row, ['Precio Total', 'Monto', 'Total', 'Subtotal']);
       const totalFacturadoRaw = parseCurrency(precioRaw);
       
+      const iSucursal = normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede', 'Centro']));
+      const iPaciente = cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente']));
+      const iFecha = parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura', 'Fecha Creacion', 'Emisión']));
+      const iProcedimiento = cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio', 'Procedimientos', 'Producto']));
+
       // Solo descartar si no tiene ni ID ni Precio Total
       if (!id && totalFacturadoRaw === 0) return null;
       
-      // Si llegó aquí sin ID, usamos un ID sintético para no perder la fila
-      if (!id) id = `row-${fileIndex}-${rowIdx}`;
+      // Si llegó aquí sin ID, usamos un ID sintético basado en el contenido para que sea estable
+      if (!id) {
+        const dateStr = iFecha instanceof Date ? iFecha.toISOString().split('T')[0] : String(iFecha);
+        const contentStr = `${iSucursal}_${iPaciente}_${dateStr}_${totalFacturadoRaw}_${iProcedimiento}`.toLowerCase();
+        id = `gen_${contentStr.replace(/[^a-z0-9]/g, '_')}`;
+      }
 
       const tipoDoc = cleanString(findValueInRow(row, ['Tipo de Documento', 'Tipo'])).toLowerCase();
       
@@ -135,12 +144,12 @@ export const processInvoices = (data: any[], fileIndex: number = 0): Invoice[] =
         id,
         citaId: cleanString(findValueInRow(row, ['Cita ID', 'ID Cita', 'Cita', 'No. Cita', 'Referencia'])),
         pacienteId: cleanString(findValueInRow(row, ['Paciente ID', 'ID paciente', 'No. Record', 'ID Paciente', 'Record'])),
-        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede', 'Centro'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente'])),
-        fecha: parseDate(findValueInRow(row, ['Fecha', 'Fecha Factura', 'Fecha Creacion', 'Emisión'])),
+        sucursal: iSucursal,
+        paciente: iPaciente,
+        fecha: iFecha,
         totalFacturado,
         estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado', 'Status'])),
-        procedimiento: cleanString(findValueInRow(row, ['Servicios', 'Procedimiento', 'Servicio', 'Procedimientos', 'Producto'])),
+        procedimiento: iProcedimiento,
         ars: 'Sin Datos' 
       };
     })
@@ -151,19 +160,30 @@ export const processAppointments = (data: any[]): Appointment[] => {
   return data
     .map(row => {
       // Priorizar 'ID Cita' que es lo que viene de MedicalCore
-      const id = cleanString(findValueInRow(row, ['ID Cita', 'ID Citas', 'ID', 'Codigo', 'No. Cita']));
-      if (!id) return null;
+      let id = cleanString(findValueInRow(row, ['ID Cita', 'ID Citas', 'ID', 'Codigo', 'No. Cita']));
+      
+      const aSucursal = normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede']));
+      const aPaciente = cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente']));
+      const aFecha = parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha', 'Cita']));
+      const aMedico = cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico', 'Doctor Tratante', 'Profesional']));
+
+      if (!id) {
+        // Generar ID estable para citas sin ID
+        const dateStr = aFecha instanceof Date ? aFecha.toISOString().split('T')[0] : String(aFecha);
+        const contentStr = `${aSucursal}_${aPaciente}_${dateStr}_${aMedico}`.toLowerCase();
+        id = `gen_app_${contentStr.replace(/[^a-z0-9]/g, '_')}`;
+      }
 
       return {
         id,
         facturaId: cleanString(findValueInRow(row, ['No Factura', 'Factura', 'ID Factura', 'No. Factura'])),
         pacienteId: cleanString(findValueInRow(row, ['ID paciente', 'ID Paciente', 'Paciente ID', 'No. Record'])),
-        sucursal: normalizeSucursal(findValueInRow(row, ['Sucursal', 'Clinica', 'Sede'])),
-        paciente: cleanString(findValueInRow(row, ['Paciente', 'Nombre Paciente', 'Nombre', 'Paciente/Cliente'])),
-        fechaCita: parseDate(findValueInRow(row, ['Fecha Cita', 'Fecha de Cita', 'Fecha', 'Cita'])),
+        sucursal: aSucursal,
+        paciente: aPaciente,
+        fechaCita: aFecha,
         duracion: parseInt(cleanString(findValueInRow(row, ['Duracion de Cita', 'Duración', 'Minutos']))) || 15,
         estatus: cleanString(findValueInRow(row, ['Estatus', 'Estado', 'Estatus Cita', 'Estado Cita', 'Status'])),
-        doctor: cleanString(findValueInRow(row, ['Doctor', 'Médico', 'Medico', 'Doctor Tratante', 'Profesional'])),
+        doctor: aMedico,
         procedimiento: cleanString(findValueInRow(row, ['Procedimientos', 'Procedimiento', 'Servicio Solicitado', 'Servicio', 'Especialidad', 'Producto'])),
         ars: cleanString(findValueInRow(row, ['Aseguradora ARS del paciente', 'Aseguradora ARS', 'ARS', 'Aseguradora', 'Seguro', 'Entidad'])) || 'N/A',
         facturada: cleanString(findValueInRow(row, ['Facturada'])) // columna Si/No separada
@@ -187,8 +207,11 @@ export const calculateKPIs = (
       a.id === inv.citaId || a.id === String(inv.citaId)
     );
     if (!linkedAppointment) return true;
-    const appStatus = (linkedAppointment.estatus || '').toLowerCase();
-    return !canceledStatuses.some(s => appStatus.includes(s));
+    // REGLA: Solo excluir si la cita está explícitamente cancelada/eliminada
+    const status = (linkedAppointment.estatus || '').toLowerCase();
+    const isCancelledOrDeleted = status === 'cancelada' || status === 'eliminada' ||
+                                  status.startsWith('cancelad') || status.startsWith('eliminad');
+    return !isCancelledOrDeleted;
   });
   
   const facturacionTotal = validInvoices.reduce((sum, inv) => sum + inv.totalFacturado, 0);
@@ -205,34 +228,39 @@ export const calculateKPIs = (
   const npsPacientes = calculateNPS(hrData.patientPromoters, hrData.patientPassives, hrData.patientDetractors);
   const enps = calculateNPS(hrData.employeePromoters, hrData.employeePassives, hrData.employeeDetractors);
   
-  // Pacientes únicos: desde citas realizadas (nombre con mínimo 3 caracteres)
-  const citasRealizadasList = appointments.filter(a => {
+// Función para verificar si una cita es "realizada"
+  const isCitaRealizada = (a: Appointment): boolean => {
     const s = a.estatus.toLowerCase();
-    const isPositiveStatus = s.includes('realizada') || s.includes('confirmada') || s.includes('atendido') || s.includes('asistió') || s.includes('asistio') || s.includes('pagada') || s.includes('cobrada');
-    const hasFacturaId = a.facturaId && a.facturaId.trim() !== '' && a.facturaId !== 'undefined';
-    const isNotCanceled = !canceledStatuses.some(s => a.estatus.toLowerCase().includes(s));
-    return isPositiveStatus || (hasFacturaId && isNotCanceled);
-  });
+    const isPositiveStatus = 
+      s.includes('realizada') || s.includes('facturada') || 
+      s.includes('confirmada') || s.includes('finalizada') || 
+      s.includes('atendido') || s.includes('asistio') || 
+      s.includes('asistió') || s.includes('completad') ||
+      s.includes('ejecutad') || s.includes('cobrad') || s.includes('pagad') ||
+      s.includes('efectiva') || s.includes('hecha');
+    
+    // Si tiene factura y NO está cancelada NI pendiente, cuenta como realizada
+    const hasInvoiceAndNotCancelled = a.facturaId && 
+                                      !s.includes('cancelada') && 
+                                      !s.includes('eliminada') && 
+                                      !s.includes('no asisti') &&
+                                      !s.includes('ausente') &&
+                                      !s.includes('pendiente');
+    
+    return isPositiveStatus || hasInvoiceAndNotCancelled;
+  };
   
-  const totalPacientesUnicos = new Set([
-    ...validInvoices.map(i => i.paciente),
-    ...citasRealizadasList.map(a => a.paciente)
-  ].map(p => (p || '').toLowerCase().trim()).filter(n => n.length >= 3)).size;
+// Pacientes únicos: desde citasrealizadas (nombre con mínimo 3 caracteres, excluir anonimo)
+  const citasRealizadasList = appointments.filter(isCitaRealizada);
   
-  // Citas Realizadas (según requerimiento: Realizada + Facturada + cita con facturaId asignada y no cancelada)
-  const citasRealizadas = appointments.filter(a => {
-    const s = a.estatus.toLowerCase();
-    const isPositiveStatus = s.includes('realizada') || s.includes('facturada') || 
-                             s.includes('confirmada') || s.includes('finalizada') || 
-                             s.includes('atendido') || s.includes('asistio') || 
-                             s.includes('asistió') || s.includes('completad') ||
-                             s.includes('ejecutad') || s.includes('cobrad') || s.includes('pagad');
-    const hasFacturaId = a.facturaId && a.facturaId.trim() !== '' && a.facturaId !== 'undefined';
-    const isNotCanceled = !canceledStatuses.some(s => a.estatus.toLowerCase().includes(s));
-    // Regla: Pendiente + Facturada = Realizada
-    const isReclassified = (s.includes('pendient') || s === '') && hasFacturaId;
-    return isPositiveStatus || (hasFacturaId && isNotCanceled && isReclassified);
-  }).length;
+  const totalPacientesUnicos = new Set(
+    citasRealizadasList
+      .map(a => (a.paciente || '').toLowerCase().trim())
+      .filter(p => p.length >= 3 && !p.includes('anonimo'))
+  ).size;
+  
+  // Citas Realizadas - usar la lista ya calculada
+  const citasRealizadas = citasRealizadasList.length;
 
   const eficienciaOperativa = appointments.length > 0 
     ? (citasRealizadas / appointments.length) * 100 
@@ -379,18 +407,53 @@ export const getSalesByBranch = (invoices: Invoice[]) => {
 
 export const getPatientsByBranch = (invoices: Invoice[], appointments: Appointment[] = []) => {
   const map = new Map<string, Set<string>>();
+  const canceledStatuses = ['cancelada', 'eliminada', 'no asistió', 'no asistio', 'ausente'];
   
-  const processRecord = (record: { sucursal: string, pacienteId: string }) => {
+  // Filtrar citas realizadas (misma lógica que calculateKPIs)
+  const citasRealizadas = appointments.filter(a => {
+    const s = a.estatus.toLowerCase();
+    const isPositiveStatus = 
+      s.includes('realizada') || s.includes('facturada') || 
+      s.includes('confirmada') || s.includes('finalizada') || 
+      s.includes('atendido') || s.includes('asistio') || 
+      s.includes('asistió') || s.includes('completad') ||
+      s.includes('ejecutad') || s.includes('cobrad') || s.includes('pagad') ||
+      s.includes('efectiva') || s.includes('hecha');
+    // Si tiene factura y NO está cancelada NI pendiente, cuenta como realizada
+    const hasInvoiceAndNotCancelled = a.facturaId && 
+                                      !s.includes('cancelada') && 
+                                      !s.includes('eliminada') && 
+                                      !s.includes('no asisti') &&
+                                      !s.includes('ausente') &&
+                                      !s.includes('pendiente');
+    return isPositiveStatus || hasInvoiceAndNotCancelled;
+  });
+  
+const processRecord = (record: { sucursal: string, paciente: string }) => {
     const branch = record.sucursal || 'Principal';
-    if (!map.has(branch)) map.set(branch, new Set());
-    map.get(branch)?.add(record.pacienteId);
+    const nombre = (record.paciente || '').toLowerCase().trim();
+    // Solo incluir pacientes con nombre >= 3 caracteres
+    if (nombre.length >= 3) {
+      if (!map.has(branch)) map.set(branch, new Set());
+      map.get(branch)?.add(nombre);
+    }
   };
 
-  invoices.forEach(processRecord);
-  appointments.forEach(processRecord);
+  // Usar solo facturas válidas y citas realizadas
+  const validInvoices = invoices.filter(inv => {
+    if (!inv.citaId) return true;
+    const linkedAppointment = appointments.find(a => a.id === inv.citaId || a.id === String(inv.citaId));
+    if (!linkedAppointment) return true;
+    const appStatus = (linkedAppointment.estatus || '').toLowerCase();
+    return !canceledStatuses.some(s => appStatus.includes(s));
+  });
   
-return Array.from(map.entries())
-    .map(([name, value]) => ({ name, value }))
+  // Solo desde citasrealizadas (no desde facturas)
+  validInvoices.forEach(inv => processRecord({ sucursal: inv.sucursal, paciente: inv.paciente }));
+  citasRealizadas.forEach(app => processRecord({ sucursal: app.sucursal, paciente: app.paciente }));
+  
+  return Array.from(map.entries())
+    .map(([name, set]) => ({ name, value: set.size }))
     .sort((a, b) => b.value - a.value);
 };
 

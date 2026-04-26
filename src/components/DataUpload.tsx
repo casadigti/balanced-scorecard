@@ -153,7 +153,7 @@ export const DataUpload: React.FC<DataUploadProps> = ({
         throw new Error("No se encontraron datos válidos en los archivos seleccionados.");
       }
 
-      clearData(); 
+      // clearData(); // ELIMINADO para cumplir con el requerimiento de no quitar registros viejos
       await saveToSupabase(invoicesProcessed, appointmentsProcessed);
       setInvoices(invoicesProcessed);
       setAppointments(appointmentsProcessed);
