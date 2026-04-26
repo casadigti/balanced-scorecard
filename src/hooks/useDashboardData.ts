@@ -113,114 +113,110 @@ export const useDashboardData = () => {
     }
   }, []);
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    console.log('BSC: Iniciando carga de datos...');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('BSC: Sesión:', session ? 'activa' : 'no hay sesión');
+      
+      if (!session) {
+        setLoading(false);
+        return;
+      }
+
+      // Cargar objetivos del usuario
+      await fetchUserSettings(session.user.id);
+
+      // Función para descargar todos los registros superando el límite de 1000
+      const fetchAllFromTable = async (table: string) => {
+        let results: any[] = [];
+        let from = 0;
+        let to = 999;
+        while (true) {
+          const { data, error } = await supabase
+            .from(table)
+            .select('*')
+            .range(from, to)
+            .order('fecha', { ascending: false });
+          
+          if (error) {
+            console.error(`BSC Error en ${table}:`, error);
+            throw error;
+          }
+          if (!data || data.length === 0) break;
+          
+          results = [...results, ...data];
+          if (data.length < 1000) break;
+          from += 1000;
+          to += 1000;
+        }
+        return results;
+      };
+
+      const invData = await fetchAllFromTable('invoices');
+      const appData = await fetchAllFromTable('appointments');
+
+      console.log(`BSC: Descargadas ${invData?.length || 0} facturas`);
+      console.log(`BSC: Descargadas ${appData?.length || 0} citas`);
+
+      if (invData && invData.length > 0) {
+        const normalizeSucursalBD = (s: string) => {
+          const n = (s || '').toLowerCase();
+          if (n.includes('santo domingo')) return 'Santo Domingo';
+          if (n.includes('san francisco')) return 'San Francisco de Macorís';
+          if (n.includes('cotu')) return 'Cotuí';
+          return s || 'Desconocida';
+        };
+        setInvoices(invData.map(i => ({
+          id: i.numero || i.id,
+          citaId: i.cita_id || '',
+          pacienteId: i.paciente_id || '',
+          sucursal: normalizeSucursalBD(i.sucursal),
+          paciente: i.cliente || 'Desconocido',
+          fecha: parseDate(i.fecha),
+          totalFacturado: Number(i.monto),
+          estatus: i.estatus || 'Pagada',
+          procedimiento: i.procedimiento || 'General'
+        })));
+      }
+
+      if (appData && appData.length > 0) {
+        const normalizeSucursalBD = (s: string) => {
+          const n = (s || '').toLowerCase();
+          if (n.includes('santo domingo')) return 'Santo Domingo';
+          if (n.includes('san francisco')) return 'San Francisco de Macorís';
+          if (n.includes('cotu')) return 'Cotuí';
+          return s || 'Desconocida';
+        };
+        setAppointments(appData.map(a => ({
+          id: a.cita_id || a.id,
+          facturaId: a.factura_id || '',
+          pacienteId: a.paciente_id || '',
+          sucursal: normalizeSucursalBD(a.sucursal),
+          paciente: a.paciente || 'Desconocido',
+          fechaCita: parseDate(a.fecha),
+          duracion: 15,
+          estatus: a.status || a.estatus || 'Programada',
+          doctor: a.medico || 'Desconocido',
+          procedimiento: a.especialidad || 'General',
+          ars: a.ars || 'Privado',
+          facturada: a.facturada || 'No'
+        })));
+      }
+
+      if ((invData && invData.length > 0) || (appData && appData.length > 0)) {
+        setDataLoaded(true);
+      }
+    } catch (err) {
+      console.error('BSC Error cargando datos:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchUserSettings]);
+
   // Cargar datos iniciales desde Supabase
   useEffect(() => {
-    let isMounted = true;
-    
-    const fetchData = async () => {
-      setLoading(true);
-      console.log('BSC: Iniciando carga de datos...');
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('BSC: Sesión:', session ? 'activa' : 'no hay sesión');
-        
-        if (!session) {
-          if (isMounted) setLoading(false);
-          return;
-        }
-
-        // Cargar objetivos del usuario
-        await fetchUserSettings(session.user.id);
-
-        // Función para descargar todos los registros superando el límite de 1000
-        const fetchAllFromTable = async (table: string) => {
-          let results: any[] = [];
-          let from = 0;
-          let to = 999;
-          while (true) {
-            const { data, error } = await supabase
-              .from(table)
-              .select('*')
-              .range(from, to)
-              .order('fecha', { ascending: false });
-            
-            if (error) {
-              console.error(`BSC Error en ${table}:`, error);
-              throw error;
-            }
-            if (!data || data.length === 0) break;
-            
-            results = [...results, ...data];
-            if (data.length < 1000) break;
-            from += 1000;
-            to += 1000;
-          }
-          return results;
-        };
-
-        const invData = await fetchAllFromTable('invoices');
-        const appData = await fetchAllFromTable('appointments');
-
-        console.log(`BSC: Descargadas ${invData?.length || 0} facturas`);
-        console.log(`BSC: Descargadas ${appData?.length || 0} citas`);
-
-        if (!isMounted) return;
-
-        if (invData && invData.length > 0) {
-          const normalizeSucursalBD = (s: string) => {
-            const n = (s || '').toLowerCase();
-            if (n.includes('santo domingo')) return 'Santo Domingo';
-            if (n.includes('san francisco')) return 'San Francisco de Macorís';
-            if (n.includes('cotu')) return 'Cotuí';
-            return s || 'Desconocida';
-          };
-          setInvoices(invData.map(i => ({
-            id: i.numero || i.id,
-            citaId: i.cita_id || '',
-            pacienteId: i.paciente_id || '',
-            sucursal: normalizeSucursalBD(i.sucursal),
-            paciente: i.cliente || 'Desconocido',
-            fecha: parseDate(i.fecha),
-            totalFacturado: Number(i.monto),
-            estatus: i.estatus || 'Pagada',
-            procedimiento: i.procedimiento || 'General'
-          })));
-        }
-
-        if (appData && appData.length > 0) {
-          const normalizeSucursalBD = (s: string) => {
-            const n = (s || '').toLowerCase();
-            if (n.includes('santo domingo')) return 'Santo Domingo';
-            if (n.includes('san francisco')) return 'San Francisco de Macorís';
-            if (n.includes('cotu')) return 'Cotuí';
-            return s || 'Desconocida';
-          };
-          setAppointments(appData.map(a => ({
-            id: a.cita_id || a.id,
-            facturaId: a.factura_id || '',
-            pacienteId: a.paciente_id || '',
-            sucursal: normalizeSucursalBD(a.sucursal),
-            paciente: a.paciente || 'Desconocido',
-            fechaCita: parseDate(a.fecha),
-            duracion: 15,
-            estatus: a.status || a.estatus || 'Programada',
-            doctor: a.medico || 'Desconocido',
-            procedimiento: a.especialidad || 'General',
-            ars: a.ars || 'Privado',
-            facturada: a.facturada || 'No'
-          })));
-        }
-
-        if ((invData && invData.length > 0) || (appData && appData.length > 0)) {
-          setDataLoaded(true);
-        }
-      } catch (err) {
-        console.error('BSC Error cargando datos:', err);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
-
     fetchData();
 
     // Escuchar cambios de sesión para recargar datos cuando el usuario se loguee
@@ -237,10 +233,9 @@ export const useDashboardData = () => {
     });
 
     return () => {
-      isMounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchData]);
 
   const saveToSupabase = useCallback(async (newInvoices: Invoice[], newAppointments: Appointment[]) => {
     try {
@@ -452,6 +447,7 @@ export const useDashboardData = () => {
     clearData,
     saveToSupabase,
     loading,
+    refreshData: fetchData,
     processInvoices,
     processAppointments,
     saveUserSettings,

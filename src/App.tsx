@@ -97,6 +97,7 @@ export default function App() {
     dataLoaded,
     setDataLoaded,
     saveToSupabase,
+    refreshData,
     loading: loadingData,
     saveUserSettings,
     savingSettings
@@ -728,6 +729,7 @@ export default function App() {
                   setDataLoaded={setDataLoaded}
                   clearData={handleClearData}
                   saveToSupabase={saveToSupabase}
+                  refreshData={refreshData}
                   onSuccess={() => setActiveTab('dashboard')}
                 />
               )}

@@ -22,6 +22,7 @@ interface DataUploadProps {
   setDataLoaded: (loaded: boolean) => void;
   clearData: () => void;
   saveToSupabase: (invoices: Invoice[], appointments: Appointment[]) => Promise<void>;
+  refreshData: () => Promise<void>;
   onSuccess: () => void;
 }
 
@@ -33,6 +34,7 @@ export const DataUpload: React.FC<DataUploadProps> = ({
   setDataLoaded,
   clearData,
   saveToSupabase,
+  refreshData,
   onSuccess
 }) => {
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null);
@@ -155,9 +157,10 @@ export const DataUpload: React.FC<DataUploadProps> = ({
 
       // clearData(); // ELIMINADO para cumplir con el requerimiento de no quitar registros viejos
       await saveToSupabase(invoicesProcessed, appointmentsProcessed);
-      setInvoices(invoicesProcessed);
-      setAppointments(appointmentsProcessed);
-      setDataLoaded(true);
+      
+      // En lugar de solo setear lo procesado, refrescamos TODO desde la base de datos
+      await refreshData();
+      
       setShowSuccess(true);
       
       setTimeout(() => {
