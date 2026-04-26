@@ -199,15 +199,15 @@ export const calculateKPIs = (
   allInvoices: Invoice[] = [],
   allAppointments: Appointment[] = []
 ): KPIStats => {
-  const canceledStatuses = ['cancelada', 'eliminada', 'no asistió', 'no asistio', 'ausente'];
+  // Crear un mapa de citas para búsquedas O(1)
+  const appMap = new Map<string, Appointment>();
+  appointments.forEach(a => appMap.set(String(a.id), a));
   
   const validInvoices = invoices.filter(inv => {
     if (!inv.citaId) return true;
-    const linkedAppointment = appointments.find(a => 
-      a.id === inv.citaId || a.id === String(inv.citaId)
-    );
+    const linkedAppointment = appMap.get(String(inv.citaId));
     if (!linkedAppointment) return true;
-    // REGLA: Solo excluir si la cita está explícitamente cancelada/eliminada
+    
     const status = (linkedAppointment.estatus || '').toLowerCase();
     const isCancelledOrDeleted = status === 'cancelada' || status === 'eliminada' ||
                                   status.startsWith('cancelad') || status.startsWith('eliminad');
@@ -228,7 +228,6 @@ export const calculateKPIs = (
   const npsPacientes = calculateNPS(hrData.patientPromoters, hrData.patientPassives, hrData.patientDetractors);
   const enps = calculateNPS(hrData.employeePromoters, hrData.employeePassives, hrData.employeeDetractors);
   
-// Función para verificar si una cita es "realizada"
   const isCitaRealizada = (a: Appointment): boolean => {
     const s = a.estatus.toLowerCase();
     const isPositiveStatus = 
@@ -239,7 +238,6 @@ export const calculateKPIs = (
       s.includes('ejecutad') || s.includes('cobrad') || s.includes('pagad') ||
       s.includes('efectiva') || s.includes('hecha');
     
-    // Si tiene factura y NO está cancelada NI pendiente, cuenta como realizada
     const hasInvoiceAndNotCancelled = a.facturaId && 
                                       !s.includes('cancelada') && 
                                       !s.includes('eliminada') && 
@@ -250,7 +248,6 @@ export const calculateKPIs = (
     return isPositiveStatus || hasInvoiceAndNotCancelled;
   };
   
-// Pacientes únicos: desde citasrealizadas (nombre con mínimo 3 caracteres, excluir anonimo)
   const citasRealizadasList = appointments.filter(isCitaRealizada);
   
   const totalPacientesUnicos = new Set(
@@ -259,7 +256,6 @@ export const calculateKPIs = (
       .filter(p => p.length >= 3 && !p.includes('anonimo'))
   ).size;
   
-  // Citas Realizadas - usar la lista ya calculada
   const citasRealizadas = citasRealizadasList.length;
 
   const eficienciaOperativa = appointments.length > 0 
@@ -269,7 +265,6 @@ export const calculateKPIs = (
   const horasInstruccion = hrData.totalEmployees > 0 ? hrData.trainingHours / hrData.totalEmployees : 0;
   const indiceRotacion = hrData.totalEmployees > 0 ? (hrData.departures / hrData.totalEmployees) * 100 : 0;
 
-  // Sucursales activas (unión de ambas fuentes)
   const sucursalesActivas = new Set([
     ...invoices.map(i => i.sucursal),
     ...appointments.map(a => a.sucursal)
@@ -293,6 +288,10 @@ export const calculateKPIs = (
   };
 };
 
+// Mapa global para persistir las primeras visitas y evitar re-calculo costoso
+let globalFirstVisitMap: Map<string, number> | null = null;
+let lastAllDataLength = 0;
+
 const calculatePatientAcquisition = (
   filteredInvoices: Invoice[],
   filteredAppointments: Appointment[],
@@ -306,40 +305,48 @@ const calculatePatientAcquisition = (
 
   if (currentPatients.size === 0) return { newPatients: 0, recurringPatients: 0 };
 
-  // Crear un mapa de la primera fecha de cada paciente en TODA la historia
-  const firstVisitMap = new Map<string, number>();
+  // Solo recalcular el mapa si la cantidad total de datos ha cambiado (nueva carga)
+  const currentTotalLength = allInvoices.length + allAppointments.length;
+  if (!globalFirstVisitMap || currentTotalLength !== lastAllDataLength) {
+    globalFirstVisitMap = new Map<string, number>();
+    lastAllDataLength = currentTotalLength;
 
-  const processHistory = (record: { pacienteId: string, fecha?: Date, fechaCita?: Date }) => {
-    const pId = record.pacienteId;
-    if (!pId) return;
-    const date = record.fecha || record.fechaCita;
-    if (!date) return;
-    
-    const time = date.getTime();
-    if (!firstVisitMap.has(pId) || time < firstVisitMap.get(pId)!) {
-      firstVisitMap.set(pId, time);
-    }
-  };
+    const processHistory = (pId: string, date?: Date) => {
+      if (!pId || !date) return;
+      const time = date.getTime();
+      if (!globalFirstVisitMap!.has(pId) || time < globalFirstVisitMap!.get(pId)!) {
+        globalFirstVisitMap!.set(pId, time);
+      }
+    };
 
-  allInvoices.forEach(i => processHistory({ pacienteId: i.pacienteId, fecha: i.fecha }));
-  allAppointments.forEach(a => processHistory({ pacienteId: a.pacienteId, fechaCita: a.fechaCita }));
+    allInvoices.forEach(i => processHistory(i.pacienteId, i.fecha));
+    allAppointments.forEach(a => processHistory(a.pacienteId, a.fechaCita));
+  }
 
-  // Encontrar el inicio del periodo filtrado (la fecha más antigua en los datos filtrados)
-  const filteredDates = [
-    ...filteredInvoices.map(i => i.fecha.getTime()),
-    ...filteredAppointments.map(a => a.fechaCita.getTime())
-  ];
-  
-  const periodStart = filteredDates.length > 0 ? Math.min(...filteredDates) : 0;
-  const periodEnd = filteredDates.length > 0 ? Math.max(...filteredDates) : Infinity;
+  // Encontrar el inicio del periodo filtrado de forma eficiente
+  let periodStart = Infinity;
+  let periodEnd = -Infinity;
+
+  filteredInvoices.forEach(i => {
+    const t = i.fecha.getTime();
+    if (t < periodStart) periodStart = t;
+    if (t > periodEnd) periodEnd = t;
+  });
+  filteredAppointments.forEach(a => {
+    const t = a.fechaCita.getTime();
+    if (t < periodStart) periodStart = t;
+    if (t > periodEnd) periodEnd = t;
+  });
+
+  if (periodStart === Infinity) periodStart = 0;
+  if (periodEnd === -Infinity) periodEnd = Infinity;
 
   let newPatientsCount = 0;
   let recurringPatientsCount = 0;
 
   currentPatients.forEach(pId => {
-    const firstVisit = firstVisitMap.get(pId);
-    // Un paciente es NUEVO si su primera visita está dentro del periodo actual
-    // Y no tiene nada antes del periodo actual.
+    if (!pId) return;
+    const firstVisit = globalFirstVisitMap!.get(pId);
     if (firstVisit && firstVisit >= periodStart && firstVisit <= periodEnd) {
       newPatientsCount++;
     } else {
@@ -439,10 +446,13 @@ const processRecord = (record: { sucursal: string, paciente: string }) => {
     }
   };
 
+  const appMap = new Map<string, Appointment>();
+  appointments.forEach(a => appMap.set(String(a.id), a));
+
   // Usar solo facturas válidas y citas realizadas
   const validInvoices = invoices.filter(inv => {
     if (!inv.citaId) return true;
-    const linkedAppointment = appointments.find(a => a.id === inv.citaId || a.id === String(inv.citaId));
+    const linkedAppointment = appMap.get(String(inv.citaId));
     if (!linkedAppointment) return true;
     const appStatus = (linkedAppointment.estatus || '').toLowerCase();
     return !canceledStatuses.some(s => appStatus.includes(s));
