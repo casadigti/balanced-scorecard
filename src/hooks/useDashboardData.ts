@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Invoice, Appointment, HRData } from '../types/dashboard';
 import { supabase } from '../lib/supabase';
 import { 
@@ -168,17 +168,22 @@ export const useDashboardData = () => {
           if (n.includes('cotu')) return 'Cotuí';
           return s || 'Desconocida';
         };
-        setInvoices(invData.map(i => ({
-          id: i.numero || i.id,
-          citaId: i.cita_id || '',
-          pacienteId: i.paciente_id || '',
-          sucursal: normalizeSucursalBD(i.sucursal),
-          paciente: i.cliente || 'Desconocido',
-          fecha: parseDate(i.fecha),
-          totalFacturado: Number(i.monto),
-          estatus: i.estatus || 'Pagada',
-          procedimiento: i.procedimiento || 'General'
-        })));
+        setInvoices(invData.map(i => {
+          const d = parseDate(i.fecha);
+          d.setHours(0, 0, 0, 0);
+          return {
+            id: i.numero || i.id,
+            citaId: i.cita_id || '',
+            pacienteId: i.paciente_id || '',
+            sucursal: normalizeSucursalBD(i.sucursal),
+            paciente: i.cliente || 'Desconocido',
+            fecha: d,
+            totalFacturado: Number(i.monto),
+            estatus: i.estatus || 'Pagada',
+            procedimiento: i.procedimiento || 'General',
+            ars: i.ars || 'PRIVADO'
+          };
+        }));
       }
 
       if (appData && appData.length > 0) {
@@ -189,20 +194,24 @@ export const useDashboardData = () => {
           if (n.includes('cotu')) return 'Cotuí';
           return s || 'Desconocida';
         };
-        setAppointments(appData.map(a => ({
-          id: a.cita_id || a.id,
-          facturaId: a.factura_id || '',
-          pacienteId: a.paciente_id || '',
-          sucursal: normalizeSucursalBD(a.sucursal),
-          paciente: a.paciente || 'Desconocido',
-          fechaCita: parseDate(a.fecha),
-          duracion: 15,
-          estatus: a.status || a.estatus || 'Programada',
-          doctor: a.medico || 'Desconocido',
-          procedimiento: a.especialidad || 'General',
-          ars: a.ars || 'Privado',
-          facturada: a.facturada || 'No'
-        })));
+        setAppointments(appData.map(a => {
+          const d = parseDate(a.fecha);
+          d.setHours(0, 0, 0, 0);
+          return {
+            id: a.cita_id || a.id,
+            facturaId: a.factura_id || '',
+            pacienteId: a.paciente_id || '',
+            sucursal: normalizeSucursalBD(a.sucursal),
+            paciente: a.paciente || 'Desconocido',
+            fechaCita: d,
+            duracion: 15,
+            estatus: a.status || a.estatus || 'Programada',
+            doctor: a.medico || 'Desconocido',
+            procedimiento: a.especialidad || 'General',
+            ars: a.ars || 'Privado',
+            facturada: a.facturada || 'No'
+          };
+        }));
       }
 
       if ((invData && invData.length > 0) || (appData && appData.length > 0)) {
@@ -215,17 +224,37 @@ export const useDashboardData = () => {
     }
   }, [fetchUserSettings]);
 
+  const lastFetchedUserId = useRef<string | null>(null);
+
   // Cargar datos iniciales desde Supabase
   useEffect(() => {
-    fetchData();
+    const checkAndFetch = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user.id !== lastFetchedUserId.current) {
+        lastFetchedUserId.current = session.user.id;
+        fetchData();
+      } else if (!session) {
+        lastFetchedUserId.current = null;
+      }
+    };
+
+    if (invoices.length === 0 && appointments.length === 0) {
+      checkAndFetch();
+    }
 
     // Escuchar cambios de sesión para recargar datos cuando el usuario se loguee
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('BSC: Cambio de sesión:', event, session ? 'con sesión' : 'sin sesión');
-      if (event === 'SIGNED_IN' && session) {
-        fetchData();
-      }
-      if (event === 'SIGNED_OUT') {
+      
+      if (session) {
+        if (session.user.id !== lastFetchedUserId.current) {
+          console.log('BSC: Nuevo usuario detectado, cargando datos...');
+          lastFetchedUserId.current = session.user.id;
+          fetchData();
+        }
+      } else {
+        console.log('BSC: Sesión cerrada, limpiando datos localmente');
+        lastFetchedUserId.current = null;
         setInvoices([]);
         setAppointments([]);
         setDataLoaded(false);
@@ -235,7 +264,7 @@ export const useDashboardData = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchData]);
+  }, [fetchData, invoices.length, appointments.length]);
 
   const saveToSupabase = useCallback(async (newInvoices: Invoice[], newAppointments: Appointment[]) => {
     try {
@@ -297,51 +326,45 @@ export const useDashboardData = () => {
   }, []);
 
   const filteredInvoices = useMemo(() => {
+    let startTs = -Infinity;
+    let endTs = Infinity;
+
+    if (startDate) {
+      const [sy, sm, sd] = startDate.split('-').map(Number);
+      startTs = new Date(sy, sm - 1, sd, 0, 0, 0, 0).getTime();
+    }
+    
+    if (endDate) {
+      const [ey, em, ed] = endDate.split('-').map(Number);
+      endTs = new Date(ey, em - 1, ed, 23, 59, 59, 999).getTime();
+    }
+
     return invoices.filter(inv => {
       const branchMatch = selectedSucursal === 'Todas' || inv.sucursal === selectedSucursal;
-      
-      const invDate = new Date(inv.fecha);
-      invDate.setHours(0, 0, 0, 0);
-      
-      let start = null;
-      if (startDate) {
-        const [sy, sm, sd] = startDate.split('-');
-        start = new Date(Number(sy), Number(sm) - 1, Number(sd), 0, 0, 0, 0);
-      }
-      
-      let end = null;
-      if (endDate) {
-        const [ey, em, ed] = endDate.split('-');
-        end = new Date(Number(ey), Number(em) - 1, Number(ed), 23, 59, 59, 999);
-      }
-
-      const dateMatch = (!start || invDate.getTime() >= start.getTime()) && 
-                        (!end || invDate.getTime() <= end.getTime());
+      const invTs = inv.fecha.getTime();
+      const dateMatch = invTs >= startTs && invTs <= endTs;
       return branchMatch && dateMatch;
     });
   }, [invoices, selectedSucursal, startDate, endDate]);
 
   const filteredAppointments = useMemo(() => {
+    let startTs = -Infinity;
+    let endTs = Infinity;
+
+    if (startDate) {
+      const [sy, sm, sd] = startDate.split('-').map(Number);
+      startTs = new Date(sy, sm - 1, sd, 0, 0, 0, 0).getTime();
+    }
+    
+    if (endDate) {
+      const [ey, em, ed] = endDate.split('-').map(Number);
+      endTs = new Date(ey, em - 1, ed, 23, 59, 59, 999).getTime();
+    }
+
     return appointments.filter(app => {
       const branchMatch = selectedSucursal === 'Todas' || app.sucursal === selectedSucursal;
-      
-      const appDate = new Date(app.fechaCita);
-      appDate.setHours(0, 0, 0, 0);
-
-      let start = null;
-      if (startDate) {
-        const [sy, sm, sd] = startDate.split('-');
-        start = new Date(Number(sy), Number(sm) - 1, Number(sd), 0, 0, 0, 0);
-      }
-      
-      let end = null;
-      if (endDate) {
-        const [ey, em, ed] = endDate.split('-');
-        end = new Date(Number(ey), Number(em) - 1, Number(ed), 23, 59, 59, 999);
-      }
-
-      const dateMatch = (!start || appDate.getTime() >= start.getTime()) && 
-                        (!end || appDate.getTime() <= end.getTime());
+      const appTs = app.fechaCita.getTime();
+      const dateMatch = appTs >= startTs && appTs <= endTs;
       return branchMatch && dateMatch;
     });
   }, [appointments, selectedSucursal, startDate, endDate]);
@@ -383,13 +406,22 @@ export const useDashboardData = () => {
     }
   };
 
+  const clearFilters = useCallback(() => {
+    setPendingStartDate('');
+    setPendingEndDate('');
+    setStartDate('');
+    setEndDate('');
+    setSelectedSucursal('Todas');
+  }, [setSelectedSucursal]);
+
   const applyFilters = useCallback(() => {
     setIsUpdating(true);
+    // Un pequeño delay para mostrar el estado de carga
     setTimeout(() => {
       setStartDate(pendingStartDate);
       setEndDate(pendingEndDate);
       setIsUpdating(false);
-    }, 300);
+    }, 100);
   }, [pendingStartDate, pendingEndDate]);
 
   const cancelFilters = useCallback(() => {
@@ -398,17 +430,8 @@ export const useDashboardData = () => {
     setIsUpdating(false);
   }, [startDate, endDate]);
 
-  useEffect(() => {
-    if (pendingStartDate !== startDate || pendingEndDate !== endDate) {
-      setIsUpdating(true);
-      const timer = setTimeout(() => {
-        setStartDate(pendingStartDate);
-        setEndDate(pendingEndDate);
-        setIsUpdating(false);
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [pendingStartDate, pendingEndDate]);
+  // ELIMINADO: El useEffect que auto-aplicaba filtros con delay de 800ms
+  // ya que causaba lentitud y conflictos con la limpieza manual.
 
   return {
     invoices,
@@ -429,6 +452,7 @@ export const useDashboardData = () => {
     setPendingEndDate,
     applyFilters,
     cancelFilters,
+    clearFilters,
     isUpdating,
     hrData,
     setHrData,

@@ -78,6 +78,7 @@ export default function App() {
     pendingEndDate,
     setPendingEndDate,
     applyFilters,
+    clearFilters,
     isUpdating,
     hrData,
     setHrData,
@@ -670,13 +671,7 @@ export default function App() {
 
               {(startDate || endDate || selectedSucursal !== 'Todas') && (
                   <button
-                    onClick={() => {
-                      setPendingStartDate('');
-                      setPendingEndDate('');
-                      setStartDate('');
-                      setEndDate('');
-                      setSelectedSucursal('Todas');
-                    }}
+                    onClick={clearFilters}
                     title="Limpiar todos los filtros"
                     className="bg-rose-50 text-rose-600 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
                   >
